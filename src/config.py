@@ -1,8 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.telegram_bot.bot import WEBHOOK_URL, WEBHOOK_PATH
-
-
 class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: int
@@ -21,7 +18,7 @@ class Settings(BaseSettings):
 
     @property
     def WEBHOOK_URL_PATH(self):
-        return f"{WEBHOOK_URL}{WEBHOOK_PATH}"
+        return f"{self.WEBHOOK_URL}{self.WEBHOOK_PATH}"
 
     model_config = SettingsConfigDict(env_file=".env")
 

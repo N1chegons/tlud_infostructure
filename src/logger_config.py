@@ -1,7 +1,7 @@
 import logging
 import os
 
-LOG_BASE_DIR = "/home/psylogic/maxapibotnew/logs"
+LOG_BASE_DIR = "/root/ttlud-bot/logs"
 
 
 def setup_logger(name: str, subfolder: str, filename: str):

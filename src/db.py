@@ -9,7 +9,7 @@ class Base(DeclarativeBase):
     pass
 
 DB_URL = settings.DB_URL
-async_engine = create_async_engine(url= DB_URL)
+async_engine = create_async_engine(url=DB_URL)
 async_session = async_sessionmaker(async_engine)
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
