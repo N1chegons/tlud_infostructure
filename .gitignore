@@ -1,0 +1,5 @@
+.idea/*
+config.secret
+private_key_ssh
+private_key_ssh.pub
+.env
