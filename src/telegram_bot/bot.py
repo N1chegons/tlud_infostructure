@@ -12,7 +12,7 @@ from src.telegram_bot.repository import TelegramRepository
 
 BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 WEBHOOK_PATH = settings.WEBHOOK_PATH
-WEBHOOK_URL = settings.WEBHOOK_URL
+WEBHOOK_URL = settings.WEBHOOK_URL_PATH
 
 app = web.Application()
 bot = AsyncTeleBot(BOT_TOKEN)
