@@ -22,6 +22,7 @@ logger = setup_logger('telegram_bot', 'bot', 'bot.log')
 async def start(message):
     user_id = message.from_user.id
     user = await TelegramRepository.get_user(user_id)
+    logger.info(f"START: Пользователь {user_id} запустил бота")
     logger.info(f"Пользователь {user_id} запустил бота")
 
     kb = InlineKeyboardMarkup()
