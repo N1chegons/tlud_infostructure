@@ -58,29 +58,30 @@ async def register(call: CallbackQuery):
     pass
 
 
-# async def handle_webhook(request):
-#     try:
-#         body = await request.json()
-#         update = telebot.types.Update.de_json(body)
-#         await bot.process_new_updates([update])
-#         return web.Response(status=200, text="OK")
-#     except Exception as e:
-#         print(f"Ошибка: {e}")
-#         return web.Response(status=200, text="OK")
-#
-# app.router.add_post(WEBHOOK_PATH, handle_webhook)
-#
-# async def main():
-#     await bot.delete_webhook()
-#     await bot.set_webhook(url=WEBHOOK_URL)
-#     # Запускаем веб-сервер как асинхронную задачу
-#     runner = web.AppRunner(app)
-#     await runner.setup()
-#     site = web.TCPSite(runner, host='127.0.0.1', port=8081)
-#     await site.start()
-#     print(f"Бот запущен на http://127.0.0.1:8081{WEBHOOK_PATH}")
-#     await asyncio.Event().wait()
+async def handle_webhook(request):
+    try:
+        body = await request.json()
+        update = telebot.types.Update.de_json(body)
+        await bot.process_new_updates([update])
+        return web.Response(status=200, text="OK")
+
+    except Exception as e:
+        print(f"Ошибка: {e}")
+        return web.Response(status=200, text="OK")
+
+app.router.add_post(WEBHOOK_PATH, handle_webhook)
+
+async def main():
+    await bot.delete_webhook()
+    await bot.set_webhook(url=WEBHOOK_URL)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, host='127.0.0.1', port=8080)
+    await site.start()
+    print(f"Бот запущен на http://127.0.0.1:8080{WEBHOOK_PATH}")
+
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    # asyncio.run(main())
-    asyncio.run(bot.polling())
+    asyncio.run(main())
