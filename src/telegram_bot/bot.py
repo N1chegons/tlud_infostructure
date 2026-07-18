@@ -51,22 +51,23 @@ async def start(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "submit_request")
 async def recording_consultation(call: CallbackQuery):
-    pass
+    await bot.send_message(call.message.chat.id, "Вы записаны на консультацию! Ожидайте...")
 
 @bot.callback_query_handler(func=lambda call: call.data == "register")
 async def register(call: CallbackQuery):
-    pass
+    await bot.send_message(call.message.chat.id, "Начинаем регистрацию! Как тебя зовут?")
 
 
 async def handle_webhook(request):
     try:
         body = await request.json()
+        logger.info(f"Webhook received: {body}")
         update = telebot.types.Update.de_json(body)
         await bot.process_new_updates([update])
         return web.Response(status=200, text="OK")
 
     except Exception as e:
-        print(f"Ошибка: {e}")
+        logger.error(f"Webhook error: {e}")
         return web.Response(status=200, text="OK")
 
 app.router.add_post(WEBHOOK_PATH, handle_webhook)
