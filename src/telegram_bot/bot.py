@@ -64,11 +64,13 @@ async def handle_webhook(request):
         body = await request.json()
         logger.info(f"Webhook received: {body}")
         update = telebot.types.Update.de_json(body)
-        await bot.process_new_updates([update])
+        try:
+            await bot.process_new_updates([update])
+        except Exception as e:
+            logger.error(f"process_new_updates error: {e}", exc_info=True)
         return web.Response(status=200, text="OK")
-
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
+        logger.error(f"Webhook error: {e}", exc_info=True)
         return web.Response(status=200, text="OK")
 
 app.router.add_post(WEBHOOK_PATH, handle_webhook)

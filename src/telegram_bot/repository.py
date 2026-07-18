@@ -8,17 +8,19 @@ logger = setup_logger('repository', 'telegram', 'repository.log')
 
 class TelegramRepository:
     @classmethod
-    async def get_user(cls, telegram_id: int):
-        async with async_session() as session:
-            logger.debug(f"Получение пользователя, входные данные: {telegram_id}")
-            query = select(User).filter_by(telegram_id=telegram_id)
-            result = await session.execute(query)
-            user = result.scalar_one_or_none()
-            if user:
-                logger.debug(f"Пользователь получен, данные: {user.id}, {user.phone_number}")
-            else:
-                logger.warning(f"Пользователя с TG_ID {telegram_id} не удалось получить")
-            return user
+    async def get_user(cls, user_id: int):
+        try:
+            logger.info(f"get_user: starting for {user_id}")
+            async with async_session() as session:
+                result = await session.execute(
+                    select(User).where(User.telegram_id == user_id)
+                )
+                user = result.scalar_one_or_none()
+                logger.info(f"get_user: found {user}")
+                return user
+        except Exception as e:
+            logger.error(f"get_user: error {e}", exc_info=True)
+            return None
 
     @classmethod
     async def register_user(cls, telegram_id: int, username: str, date_of_birth: str, phone_number: str):
