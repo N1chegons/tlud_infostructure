@@ -20,6 +20,7 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.DB_USER}:{encoded_pass}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
+
     @property
     def WEBHOOK_URL_PATH(self):
         return f"{self.WEBHOOK_URL}{self.WEBHOOK_PATH}"
