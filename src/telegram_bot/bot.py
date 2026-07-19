@@ -96,39 +96,72 @@ async def admin(message):
 
 # admin logic
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
-async def recording_consultation(call: CallbackQuery):
+async def admin_view_consultations(call: CallbackQuery):
     user_id = call.from_user.id
 
-    try:
-        rows = await ConsultationRepository.get_consultation_list()
+    consultations = await ConsultationRepository.get_consultation_list()
 
-        if not rows:
-            text = "📭 Записей пока нет."
-        else:
-            text = "📋 Записи на консультацию:\n\n"
-            for row in rows:
-                text += (
-                    f"{row.consultation_id}. - {row.username} - {row.phone_number} - {row.date_of_birth}\n"
-                )
-
-        kb = InlineKeyboardMarkup()
-        kb.add(
-            InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
-        )
-
+    if not consultations:
         await bot.edit_message_text(
             chat_id=user_id,
             message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
+            text="📭 Записей пока нет.",
         )
+        return
 
-    except Exception as e:
-        logger.error(f"Произошла неизвестная оишбка при получении записей у админа ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
-        )
+    text = "📋 **Записи на консультацию:**\n\n"
+    for idx, cons in enumerate(consultations, 1):
+        viewed_emoji = "🆕" if not cons.viewed else "✅"
+        text += f"{idx}. {cons.user.username} — {cons.created_at.strftime('%d.%m.%Y %H:%M')} — {viewed_emoji} \n"
+
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"),
+        InlineKeyboardButton("🔙 Назад", callback_data="admin_back"),
+    )
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=text,
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed")
+async def admin_mark_viewed(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    unviewed = await ConsultationRepository.get_consultation_list()
+
+    if not unviewed:
+        await bot.answer_callback_query(call.id, "✅ Все записи уже просмотрены!")
+        await admin_view_consultations(call)
+        return
+
+    text = "🆕 **Непросмотренные записи:**\n\n"
+    for idx, cons in enumerate(unviewed, 1):
+        text += f"{idx}. {cons.user.username} — {cons.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+
+    text += "\nВыберите номер записи, чтобы отметить её как просмотренную:"
+
+    kb = InlineKeyboardMarkup()
+    row = []
+    for idx, cons in enumerate(unviewed, 1):
+        row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_{cons.id}"))
+        if len(row) == 5:
+            kb.row(*row)
+            row = []
+    if row:
+        kb.row(*row)
+
+    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_consultations"))
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=text,
+        reply_markup=kb
+    )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
@@ -143,7 +176,7 @@ async def admin_back(call: CallbackQuery):
             # "Здесь вы можете управлять записями на консультацию, "
             # "смотреть статистику и отслеживать активность клиентов.\n\n"
             "📌 **Доступные действия:**\n"
-            "• 📋 Просмотр всех записей\n"
+            "• 📋 Просмотр всех записей\n\n"
             # "• 📊 Статистика по консультациям\n"
             # "• ⚙️ Управление настройками\n\n"
             "Выберите действие ниже 👇"

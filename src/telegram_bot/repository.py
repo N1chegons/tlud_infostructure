@@ -67,7 +67,24 @@ class ConsultationRepository:
                 User.date_of_birth,
                 Consultation.id.label("consultation_id"),
                 Consultation.created_at,
-            ).join(Consultation, User.id == Consultation.user_id).order_by(Consultation.created_at.desc()).limit(10)
+            ).join(Consultation, User.id == Consultation.user_id).order_by(Consultation.is_viewed.asc(), Consultation.created_at.desc()).limit(10)
+
+            result = await session.execute(query)
+            rows = result.all()
+
+            return rows
+
+    @classmethod
+    async def get_unviewed_consultation_list(cls):
+        async with async_session() as session:
+            query = select(
+                User.id,
+                User.username,
+                User.phone_number,
+                User.date_of_birth,
+                Consultation.id.label("consultation_id"),
+                Consultation.created_at,
+            ).join(Consultation, User.id == Consultation.user_id).order_by(Consultation.is_viewed.asc(),Consultation.created_at.desc()).where(Consultation.is_viewed == False).limit(10)
 
             result = await session.execute(query)
             rows = result.all()
