@@ -118,9 +118,8 @@ async def admin_view_consultations(call: CallbackQuery):
             f"   📅 {row.date_of_birth}\n\n"
         )
     kb = InlineKeyboardMarkup()
-    kb.add(
-        InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"),
-        InlineKeyboardButton("🔙 Назад", callback_data="admin_back"),
+    kb.add(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"))
+    kb.add( InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
     )
 
     await bot.edit_message_text(
