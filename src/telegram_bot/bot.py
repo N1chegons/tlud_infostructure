@@ -113,7 +113,7 @@ async def admin_view_consultations(call: CallbackQuery):
     for idx, row in enumerate(consultations, 1):
         viewed_emoji = "🆕" if not row.is_viewed else "✅"
         text += (
-            f"{idx}. {row.username}\n"
+            f"{viewed_emoji} {idx}. {row.username}\n"
             f"   📱 {row.phone_number}\n"
             f"   📅 {row.date_of_birth}\n\n"
         )
