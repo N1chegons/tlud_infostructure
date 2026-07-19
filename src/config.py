@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import urllib.parse
 
 class Settings(BaseSettings):
     DB_HOST: str
@@ -14,8 +15,11 @@ class Settings(BaseSettings):
 
     @property
     def DB_URL(self):
-        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-
+        encoded_pass = urllib.parse.quote(self.DB_PASS, safe="")
+        return (
+            f"postgresql+asyncpg://{self.DB_USER}:{encoded_pass}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
     @property
     def WEBHOOK_URL_PATH(self):
         return f"{self.WEBHOOK_URL}{self.WEBHOOK_PATH}"
