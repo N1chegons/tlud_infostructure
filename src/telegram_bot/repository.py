@@ -58,6 +58,23 @@ class TelegramBotRepository:
 
 class ConsultationRepository:
     @classmethod
+    async def get_consultation_list(cls):
+        async with async_session() as session:
+            query = select(
+                User.id,
+                User.username,
+                User.phone_number,
+                User.date_of_birth,
+                Consultation.id.label("consultation_id"),
+                Consultation.created_at,
+            ).join(Consultation, User.id == Consultation.user_id).order_by(Consultation.created_at.desc()).limit(10)
+
+            result = await session.execute(query)
+            rows = result.all()
+
+            return rows
+
+    @classmethod
     async def create_consultation(cls, user_id: int):
         async with async_session() as session:
             logger.debug(f"Запись на консультацию для пользователя ID {user_id}")
@@ -67,6 +84,13 @@ class ConsultationRepository:
             await session.commit()
 
             logger.debug(f"Пользователь успешно записался")
+
+class AdminRepository:
+    ADMIN_IDS=[677239271, 8177043133]
+
+    @classmethod
+    async def is_admin(cls, admin_id: int):
+        return admin_id in cls.ADMIN_IDS
 
 class Validation:
     @classmethod
@@ -84,3 +108,4 @@ class Validation:
     @classmethod
     def validate_phone(cls, phone: str) -> bool:
         return bool(re.fullmatch(r"\+7\d{10}", phone))
+

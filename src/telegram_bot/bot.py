@@ -7,7 +7,7 @@ from telebot.async_telebot import AsyncTeleBot
 
 from src.config import settings
 from src.logger_config import setup_logger
-from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation
+from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository
 
 BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 WEBHOOK_PATH = settings.WEBHOOK_PATH
@@ -60,6 +60,77 @@ async def start(message):
         reply_markup=kb
     )
 
+@bot.message_handler(commandes=['admin'])
+async def admin(message):
+    user_id = message.from_user.id
+
+    if not AdminRepository.is_admin(user_id):
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="❌ Доступ ограничен",
+        )
+    else:
+        kb = InlineKeyboardMarkup()
+        kb.add(InlineKeyboardButton("📋 Посмотреть записи", callback_data="admin_view_consultations"))
+        # kb.add(InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"))
+        # kb.add(InlineKeyboardButton("⚙️ Настройки", callback_data="admin_settings"))
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=(
+                "🔐 **Админ-панель**\n\n"
+                "Добро пожаловать в панель управления ботом!\n"
+                # "Здесь вы можете управлять записями на консультацию, "
+                # "смотреть статистику и отслеживать активность клиентов.\n\n"
+                "📌 **Доступные действия:**\n"
+                "• 📋 Просмотр всех записей\n"
+                # "• 📊 Статистика по консультациям\n"
+                # "• ⚙️ Управление настройками\n\n"
+                "Выберите действие ниже 👇"
+            ),
+            reply_markup=kb
+        )
+
+
+# admin logic
+@bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
+async def recording_consultation(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    try:
+        rows = await ConsultationRepository.get_consultation_list()
+
+        if not rows:
+            text = "📭 Записей пока нет."
+        else:
+            text = "📋 Записи на консультацию:\n\n"
+            for row in rows:
+                text += (
+                    f"{row.consultation_id} - {row.username} - {row.phone_number} - {row.date_of_birth}"
+                )
+
+        kb = InlineKeyboardMarkup()
+        kb.add(
+            InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
+        )
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(f"Произошла неизвестная оишбка при получении записей у админа ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
+        )
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_back")
+async def admin_back(call):
+    await admin(call.message)
 # logic
 registration_data = {}
 
@@ -104,7 +175,7 @@ async def register(call: CallbackQuery):
     registration_data[user_id] = {"step": "name"}
 
     await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Ты еще не зарегестрирован, давай пройдем небольшую регистрацию!")
-    await bot.send_message(chat_id=call.message.chat.id, text="Для начала, как тебя зовут? (Введите имя используя латиницу, пример: Ivan)")
+    await bot.send_message(chat_id=call.message.chat.id, text="✏️ Для начала, как тебя зовут?\n (Введите имя используя латиницу, пример: Ivan)")
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm")
 async def confirm(call: CallbackQuery):
@@ -177,7 +248,7 @@ async def handle_text(message):
 
         registration_data[user_id]["name"] = message.text
         registration_data[user_id]["step"] = "birth"
-        await bot.send_message(chat_id=user_id, text="Теперь дату рождения, в формате ДД.ММ.ГГГГ (Пример: 31.01.2000):")
+        await bot.send_message(chat_id=user_id, text="📅 Теперь дату рождения, в формате ДД.ММ.ГГГГ (Пример: 31.01.2000):")
 
     elif step == "birth":
         birth = message.text.strip()
@@ -194,7 +265,7 @@ async def handle_text(message):
 
         await bot.send_message(
             chat_id=user_id,
-            text="📱 Поделись своим номером, чтобы с тобой можно было связаться (формат: +79001234567):"
+            text="📱 Поделись своим номером, чтобы с тобой можно было связаться \n(формат: +79001234567):"
         )
 
     elif step == "phone_wait":
@@ -203,7 +274,7 @@ async def handle_text(message):
         if not Validation.validate_phone(phone):
             await bot.send_message(
                 user_id,
-                "❌ Неверный формат. Введите номер в формате +7XXXXXXXXXX (например, +79001234567):"
+                "❌ Неверный формат. Введите номер в формате +7XXXXXXXXXX \n(например, +79001234567):"
             )
             return
 
@@ -256,7 +327,7 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, host='127.0.0.1', port=8080)
     await site.start()
-    print(f"Бот запущен на http://127.0.0.1:8080{WEBHOOK_PATH}")
+    logger.info("Бот запущен")
 
     await asyncio.Event().wait()
 
