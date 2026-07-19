@@ -183,11 +183,11 @@ async def handle_text(message):
         registration_data[user_id]["birth"] = message.text
         registration_data[user_id]["step"] = "phone"
 
-        contact_button = KeyboardButton(
+        contact_button = InlineKeyboardButton(
             text="📱 Поделиться номером",
             request_contact=True
         )
-        keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        keyboard = InlineKeyboardMarkup()
         keyboard.add(contact_button)
 
         await bot.send_message(
