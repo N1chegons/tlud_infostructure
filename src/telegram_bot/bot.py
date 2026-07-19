@@ -31,23 +31,24 @@ async def start(message):
 
         await bot.send_message(chat_id=message.chat.id, text="Привет! Ты уже зареегестрирован. Тут сообщение будет какое-то")
 
-    if not user:
-        logger.info(f"Пользователь не зарегестрирован. Первод на мини-регистрацию")
-
-        kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="register"))
-
     else:
-        logger.info(f"Пользователь зарегестрирован. Запись на бесплатную консультацию")
+        if not user:
+            logger.info(f"Пользователь не зарегестрирован. Первод на мини-регистрацию")
 
-        kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="submit_request"))
+            kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="register"))
 
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text="Привет! 🙌\n"
-        "Я цифровой психолог. Моя задача — показать, что твоя дата рождения — это не просто цифры в паспорте. Это твой личный код, подпись Вселенной и ключ к счастливой жизни.\n\n"
-        "Готов узнать, что в тебе зашифровано? 👇",
-        reply_markup=kb
-    )
+        else:
+            logger.info(f"Пользователь зарегестрирован. Запись на бесплатную консультацию")
+
+            kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="submit_request"))
+
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="Привет! 🙌\n"
+            "Я цифровой психолог. Моя задача — показать, что твоя дата рождения — это не просто цифры в паспорте. Это твой личный код, подпись Вселенной и ключ к счастливой жизни.\n\n"
+            "Готов узнать, что в тебе зашифровано? 👇",
+            reply_markup=kb
+        )
 
 # logic
 registration_data = {}
