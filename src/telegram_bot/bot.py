@@ -7,6 +7,7 @@ from telebot.async_telebot import AsyncTeleBot
 
 from src.config import settings
 from src.logger_config import setup_logger
+from src.telegram_bot.meneger_sending import notify_admins
 from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository
 
 BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
@@ -169,10 +170,6 @@ async def admin_mark_viewed(call: CallbackQuery):
         reply_markup=kb
     )
 
-# @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
-# async def admin_back(call: CallbackQuery):
-#     await admin_view_consultations(call)
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_"))
 async def admin_mark_single(call: CallbackQuery):
     consultation_id = int(call.data.split("_")[-1])
@@ -228,6 +225,8 @@ async def recording_consultation(call: CallbackQuery):
         await ConsultationRepository.create_consultation(user.id)
         await TelegramBotRepository.update_free_consultation_status(user_id)
 
+        await notify_admins(f"Новая запись на консультацию. Клиент: {user.username}.\n\nПерейти к записям 👇")
+
         await bot.edit_message_text(
             text=f"✅ {user.username}, вы успешно записались на консультацию! Ожидайте ответа...",
             chat_id=call.message.chat.id,
@@ -271,6 +270,8 @@ async def confirm(call: CallbackQuery):
 
         await ConsultationRepository.create_consultation(user.id)
         await TelegramBotRepository.update_free_consultation_status(user_id)
+
+        await notify_admins(f"Новая запись на консультацию. Клиент: {user.username}.\n\nПерейти к записям 👇")
 
         del registration_data[user_id]
 

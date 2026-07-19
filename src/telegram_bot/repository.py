@@ -118,6 +118,10 @@ class AdminRepository:
     async def is_admin(cls, admin_id: int):
         return admin_id in cls.ADMIN_IDS
 
+    @classmethod
+    async def get_admin_ids(cls) -> list[int]:
+        return cls.ADMIN_IDS
+
 class Validation:
     @classmethod
     def validate_name(cls, name: str) -> bool:
