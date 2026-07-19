@@ -26,29 +26,39 @@ async def start(message):
 
     kb = InlineKeyboardMarkup()
 
-    if user.has_free_consultation:
-        logger.info(f"Пользователь зарегестрирован. Запись на бесплатную консультацию уже была произведена")
-
-        await bot.send_message(chat_id=message.chat.id, text="Привет! Ты уже зареегестрирован. Тут сообщение будет какое-то")
-
-    else:
-        if not user:
-            logger.info(f"Пользователь не зарегестрирован. Первод на мини-регистрацию")
-
-            kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="register"))
-
-        else:
-            logger.info(f"Пользователь зарегестрирован. Запись на бесплатную консультацию")
-
-            kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="submit_request"))
+    if not user:
+        logger.info(f"Пользователь не зарегистрирован. Начало регистрации")
+        kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="register"))
 
         await bot.send_message(
             chat_id=message.chat.id,
             text="Привет! 🙌\n"
-            "Я цифровой психолог. Моя задача — показать, что твоя дата рождения — это не просто цифры в паспорте. Это твой личный код, подпись Вселенной и ключ к счастливой жизни.\n\n"
-            "Готов узнать, что в тебе зашифровано? 👇",
+                 "Я цифровой психолог. Моя задача — показать, что твоя дата рождения — это не просто цифры в паспорте. "
+                 "Это твой личный код, подпись Вселенной и ключ к счастливой жизни.\n\n"
+                 "Готов узнать, что в тебе зашифровано? 👇",
             reply_markup=kb
         )
+        return
+
+    if user.has_free_consultation:
+        logger.info(f"Пользователь зарегистрирован. Запись уже была произведена")
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="Привет! Ты уже зарегистрирован. Ты уже записан на бесплатную консультацию."
+        )
+        return
+
+    logger.info(f"Пользователь зарегистрирован. Запись на бесплатную консультацию")
+    kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="submit_request"))
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text="Привет! 🙌\n"
+             "Я цифровой психолог. Моя задача — показать, что твоя дата рождения — это не просто цифры в паспорте. "
+             "Это твой личный код, подпись Вселенной и ключ к счастливой жизни.\n\n"
+             "Готов узнать, что в тебе зашифровано? 👇",
+        reply_markup=kb
+    )
 
 # logic
 registration_data = {}
@@ -182,7 +192,7 @@ async def handle_text(message):
 
         await bot.send_message(
             chat_id=user_id,
-            text="Поделись своим номером чтобы с тобой связались.",
+            text="Поделись своим номером чтобы с тобой можно связаться",
             reply_markup=keyboard
         )
 
