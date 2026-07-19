@@ -66,6 +66,7 @@ class ConsultationRepository:
                 User.phone_number,
                 User.date_of_birth,
                 Consultation.id.label("consultation_id"),
+                Consultation.is_viewed,
                 Consultation.created_at,
             ).join(Consultation, User.id == Consultation.user_id).order_by(Consultation.is_viewed.asc(), Consultation.created_at.desc()).limit(10)
 
@@ -83,6 +84,7 @@ class ConsultationRepository:
                 User.phone_number,
                 User.date_of_birth,
                 Consultation.id.label("consultation_id"),
+                Consultation.is_viewed,
                 Consultation.created_at,
             ).join(Consultation, User.id == Consultation.user_id).order_by(Consultation.is_viewed.asc(),Consultation.created_at.desc()).where(Consultation.is_viewed == False).limit(10)
 

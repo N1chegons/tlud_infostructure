@@ -72,7 +72,7 @@ async def start(message):
 async def admin(message):
     user_id = message.from_user.id
 
-    if not AdminRepository.is_admin(user_id):
+    if not await AdminRepository.is_admin(user_id):
         await bot.send_message(
             chat_id=message.chat.id,
             text="❌ Доступ ограничен",
