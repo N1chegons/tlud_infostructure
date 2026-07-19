@@ -27,9 +27,9 @@ async def start(message):
     kb = InlineKeyboardMarkup()
 
     if not user:
-        logger.info(f"Пользователь зарегестрирован. Запись на бесплатную консультацию")
+        logger.info(f"Пользователь не зарегестрирован. Первод на мини-регистрацию")
 
-        kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="submit_request"))
+        kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="register"))
 
     elif user.has_free_consultation:
         logger.info(f"Пользователь зарегестрирован. Запись на бесплатную консультацию уже была произведена")
@@ -37,9 +37,9 @@ async def start(message):
         await bot.send_message(chat_id=message.chat.id, text="Привет! Ты уже зареегестрирован. Тут сообщение будет какое-то")
 
     else:
-        logger.info(f"Пользователь не зарегестрирован. Первод на мини-регистрацию")
+        logger.info(f"Пользователь зарегестрирован. Запись на бесплатную консультацию")
 
-        kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="register"))
+        kb.add(InlineKeyboardButton(text="Записаться на бесплатную консультацию", callback_data="submit_request"))
 
     await bot.send_message(
         chat_id=message.chat.id,
