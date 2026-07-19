@@ -3,7 +3,7 @@ import logging
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.telegram_bot.repository import AdminRepository
-from src.telegram_bot.bot import bot
+
 
 
 async def send_notification_telegram(user_id: int, text: str):
@@ -28,3 +28,5 @@ async def notify_admins(text: str):
             )
         except Exception as e:
             logging.error(f"Не удалось отправить уведомление админу {admin_id}: {e}")
+
+from src.telegram_bot.bot import bot
