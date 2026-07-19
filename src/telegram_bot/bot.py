@@ -153,8 +153,8 @@ async def admin_mark_viewed(call: CallbackQuery):
 
     kb = InlineKeyboardMarkup()
     row = []
-    for idx, cons in enumerate(unviewed, 1):
-        row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_{cons.id}"))
+    for idx, row_data in enumerate(unviewed, 1):
+        row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_{row_data.consultation_id}"))  # 👈 ИСПРАВИЛ
         if len(row) == 5:
             kb.row(*row)
             row = []
@@ -170,15 +170,15 @@ async def admin_mark_viewed(call: CallbackQuery):
         reply_markup=kb
     )
 
-@bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
-async def admin_back(call: CallbackQuery):
-    await admin_view_consultations(call)
+# @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
+# async def admin_back(call: CallbackQuery):
+#     await admin_view_consultations(call)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_"))
 async def admin_mark_single(call: CallbackQuery):
     consultation_id = int(call.data.split("_")[-1])
 
-    await ConsultationRepository.viewed_consultation(consultation_id)
+    await ConsultationRepository.mark_as_viewed(consultation_id)
 
     await bot.answer_callback_query(call.id, "✅ Запись отмечена как просмотренная!")
 

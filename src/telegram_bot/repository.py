@@ -94,12 +94,12 @@ class ConsultationRepository:
             return rows
 
     @classmethod
-    async def viewed_consultation(cls, consultation_id: int):
+    async def mark_as_viewed(cls, consultation_id: int):
         async with async_session() as session:
-            stmt = update(Consultation).values(is_viewed=True).filter_by(id=consultation_id)
-            await session.execute(stmt)
+            await session.execute(
+                update(Consultation).where(Consultation.id == consultation_id).values(is_viewed=True)
+            )
             await session.commit()
-
     @classmethod
     async def create_consultation(cls, user_id: int):
         async with async_session() as session:
