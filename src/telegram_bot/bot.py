@@ -105,7 +105,7 @@ async def recording_consultation(call: CallbackQuery):
             text = "📋 Записи на консультацию:\n\n"
             for row in rows:
                 text += (
-                    f"{row.consultation_id} - {row.username} - {row.phone_number} - {row.date_of_birth}"
+                    f"{row.consultation_id}. - {row.username} - {row.phone_number} - {row.date_of_birth}\n"
                 )
 
         kb = InlineKeyboardMarkup()
