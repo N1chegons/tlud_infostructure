@@ -192,7 +192,7 @@ async def handle_text(message):
 
         await bot.send_message(
             chat_id=user_id,
-            text="Поделись своим номером чтобы с тобой можно связаться",
+            text="Поделись своим номером чтобы с тобой можно связаться 👇",
             reply_markup=keyboard
         )
 
