@@ -134,8 +134,9 @@ async def recording_consultation(call: CallbackQuery):
 async def admin_back(call: CallbackQuery):
     user_id = call.from_user.id
 
-    await bot.send_message(
-        chat_id=user_id,
+    await bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
         text=(
             "🔐 **Админ-панель**\n\n"
             "Добро пожаловать в панель управления ботом!\n"
