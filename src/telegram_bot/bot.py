@@ -67,6 +67,7 @@ async def recording_consultation(call: CallbackQuery):
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
             )
+            return
 
 
         await ConsultationRepository.create_consultation(user.id)
