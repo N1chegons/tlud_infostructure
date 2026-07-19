@@ -190,19 +190,11 @@ async def handle_text(message):
             return
 
         registration_data[user_id]["birth"] = message.text
-        registration_data[user_id]["step"] = "phone"
-
-        contact_button = KeyboardButton(
-            text="📱 Поделиться номером",
-            request_contact=True
-        )
-        keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        keyboard.add(contact_button)
+        registration_data[user_id]["step"] = "phone_wait"
 
         await bot.send_message(
             chat_id=user_id,
-            text="Поделись своим номером чтобы с тобой можно связаться",
-            reply_markup=keyboard
+            text="📱 Поделись своим номером, чтобы с тобой можно было связаться (формат: +79001234567):"
         )
 
     elif step == "phone_wait":
