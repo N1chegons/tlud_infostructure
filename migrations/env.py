@@ -21,7 +21,8 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 from src.telegram_bot.models import User
 # target_metadata = mymodel.Base.metadata
-config.set_main_option("sqlalchemy.url", f"{settings.DB_URL}?async_fallback=True")
+config.set_main_option("sqlalchemy.url", f"{settings.DB_URL}" + "?async_fallback=True")
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
