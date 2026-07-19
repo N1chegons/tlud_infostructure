@@ -92,6 +92,13 @@ class ConsultationRepository:
             return rows
 
     @classmethod
+    async def viewed_consultation(cls, consultation_id: int):
+        async with async_session() as session:
+            stmt = update(Consultation).values(is_viewed=True).filter_by(id=consultation_id)
+            await session.execute(stmt)
+            await session.commit()
+
+    @classmethod
     async def create_consultation(cls, user_id: int):
         async with async_session() as session:
             logger.debug(f"Запись на консультацию для пользователя ID {user_id}")

@@ -110,10 +110,13 @@ async def admin_view_consultations(call: CallbackQuery):
         return
 
     text = "📋 **Записи на консультацию:**\n\n"
-    for idx, cons in enumerate(consultations, 1):
-        viewed_emoji = "🆕" if not cons.viewed else "✅"
-        text += f"{idx}. {cons.user.username} — {cons.created_at.strftime('%d.%m.%Y %H:%M')} — {viewed_emoji} \n"
-
+    for idx, row in enumerate(consultations, 1):
+        viewed_emoji = "🆕" if not row.is_viewed else "✅"
+        text += (
+            f"{idx}. {row.username}\n"
+            f"   📱 {row.phone_number}\n"
+            f"   📅 {row.date_of_birth}\n\n"
+        )
     kb = InlineKeyboardMarkup()
     kb.add(
         InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"),
@@ -131,7 +134,7 @@ async def admin_view_consultations(call: CallbackQuery):
 async def admin_mark_viewed(call: CallbackQuery):
     user_id = call.from_user.id
 
-    unviewed = await ConsultationRepository.get_consultation_list()
+    unviewed = await ConsultationRepository.get_unviewed_consultation_list()
 
     if not unviewed:
         await bot.answer_callback_query(call.id, "✅ Все записи уже просмотрены!")
@@ -139,8 +142,12 @@ async def admin_mark_viewed(call: CallbackQuery):
         return
 
     text = "🆕 **Непросмотренные записи:**\n\n"
-    for idx, cons in enumerate(unviewed, 1):
-        text += f"{idx}. {cons.user.username} — {cons.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+    for idx, row in enumerate(unviewed, 1):
+        text += (
+            f"{idx}. {row.username}\n"
+            f"   📱 {row.phone_number}\n"
+            f"   📅 {row.date_of_birth}\n\n"
+        )
 
     text += "\nВыберите номер записи, чтобы отметить её как просмотренную:"
 
@@ -162,6 +169,20 @@ async def admin_mark_viewed(call: CallbackQuery):
         text=text,
         reply_markup=kb
     )
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
+async def admin_back(call: CallbackQuery):
+    await admin_view_consultations(call)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_"))
+async def admin_mark_single(call: CallbackQuery):
+    consultation_id = int(call.data.split("_")[-1])
+
+    await ConsultationRepository.viewed_consultation(consultation_id)
+
+    await bot.answer_callback_query(call.id, "✅ Запись отмечена как просмотренная!")
+
+    await admin_mark_viewed(call)
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
