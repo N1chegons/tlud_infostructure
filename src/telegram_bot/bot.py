@@ -17,6 +17,14 @@ app = web.Application()
 bot = AsyncTeleBot(BOT_TOKEN)
 logger = setup_logger('telegram_bot', 'bot', 'bot.log')
 
+# utilits
+def get_admins_keyboard():
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("📋 Посмотреть записи", callback_data="admin_view_consultations"))
+    # kb.add(InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"))
+    # kb.add(InlineKeyboardButton("⚙️ Настройки", callback_data="admin_settings"))r
+    return kb
+
 # start
 @bot.message_handler(commands=['start'])
 async def start(message):
@@ -70,11 +78,6 @@ async def admin(message):
             text="❌ Доступ ограничен",
         )
     else:
-        kb = InlineKeyboardMarkup()
-        kb.add(InlineKeyboardButton("📋 Посмотреть записи", callback_data="admin_view_consultations"))
-        # kb.add(InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"))
-        # kb.add(InlineKeyboardButton("⚙️ Настройки", callback_data="admin_settings"))
-
         await bot.send_message(
             chat_id=user_id,
             text=(
@@ -88,7 +91,7 @@ async def admin(message):
                 # "• ⚙️ Управление настройками\n\n"
                 "Выберите действие ниже 👇"
             ),
-            reply_markup=kb
+            reply_markup=get_admins_keyboard()
         )
 
 # admin logic
@@ -128,8 +131,25 @@ async def recording_consultation(call: CallbackQuery):
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
-async def admin_back(call):
-    await admin(call.message)
+async def admin_back(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    await bot.send_message(
+        chat_id=user_id,
+        text=(
+            "🔐 **Админ-панель**\n\n"
+            "Добро пожаловать в панель управления ботом!\n"
+            # "Здесь вы можете управлять записями на консультацию, "
+            # "смотреть статистику и отслеживать активность клиентов.\n\n"
+            "📌 **Доступные действия:**\n"
+            "• 📋 Просмотр всех записей\n"
+            # "• 📊 Статистика по консультациям\n"
+            # "• ⚙️ Управление настройками\n\n"
+            "Выберите действие ниже 👇"
+        ),
+        reply_markup=get_admins_keyboard()
+    )
+
 # logic
 registration_data = {}
 
