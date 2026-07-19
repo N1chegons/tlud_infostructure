@@ -44,7 +44,7 @@ async def start(message):
         logger.info(f"Пользователь зарегистрирован. Запись уже была произведена")
         await bot.send_message(
             chat_id=message.chat.id,
-            text="Привет! Ты уже зарегистрирован. Ты уже записан на бесплатную консультацию."
+            text="Привет! Ты уже записывался на бесплатную консультацию."
         )
         return
 
@@ -54,7 +54,7 @@ async def start(message):
     await bot.send_message(
         chat_id=message.chat.id,
         text="Привет! 🙌\n"
-             "Я цифровой психолог. Моя задача — показать, что твоя дата рождения — это не просто цифры в паспорте. "
+             "Я Людмила - цифровой психолог. Моя задача — показать, что твоя дата рождения — это не просто цифры в паспорте. "
              "Это твой личный код, подпись Вселенной и ключ к счастливой жизни.\n\n"
              "Готов узнать, что в тебе зашифровано? 👇",
         reply_markup=kb
@@ -85,7 +85,7 @@ async def recording_consultation(call: CallbackQuery):
         await TelegramBotRepository.update_free_consultation_status(user_id)
 
         await bot.edit_message_text(
-            text=f"✅ {user.username}, вы успешно записались на консультацию! Ожидайте...",
+            text=f"✅ {user.username}, вы успешно записались на консультацию! Ожидайте ответа...",
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
         )
@@ -104,7 +104,7 @@ async def register(call: CallbackQuery):
     registration_data[user_id] = {"step": "name"}
 
     await bot.send_message(chat_id=call.message.chat.id, text="Ты еще не зарегестрирован, давай пройдем небольшую регистрацию!")
-    await bot.send_message(chat_id=call.message.chat.id, text="Для начала, как тебя зовут?(Введите имя используя латиницу, пример: Ivan)")
+    await bot.send_message(chat_id=call.message.chat.id, text="Для начала, как тебя зовут? (Введите имя используя латиницу, пример: Ivan)")
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm")
 async def confirm(call: CallbackQuery):
@@ -122,11 +122,20 @@ async def confirm(call: CallbackQuery):
     try:
         logger.info(f"Регистрация для пользователя TG_ID {user_id}")
 
-        await TelegramBotRepository.register_user(user_id, data["name"], data["birth"], data["phone"])
+        user = await TelegramBotRepository.register_user(user_id, data["name"], data["birth"], data["phone"])
+        user = await TelegramBotRepository.get_user(user_id)
+
+        await ConsultationRepository.create_consultation(user.id)
+        await TelegramBotRepository.update_free_consultation_status(user_id)
 
         del registration_data[user_id]
 
-        await recording_consultation(call)
+
+        await bot.edit_message_text(
+            text=f"✅ {user.username}, вы успешно записались на консультацию! Ожидайте ответа...",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+        )
 
     except Exception as e:
         logger.error(f"Произошла неизвестная оишбка при регистрации у пользователя ID {user_id}, ошибка: {str(e)}")
@@ -183,51 +192,52 @@ async def handle_text(message):
         registration_data[user_id]["birth"] = message.text
         registration_data[user_id]["step"] = "phone"
 
-        contact_button = InlineKeyboardButton(
+        contact_button = KeyboardButton(
             text="📱 Поделиться номером",
             request_contact=True
         )
-        keyboard = InlineKeyboardMarkup()
+        keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         keyboard.add(contact_button)
 
         await bot.send_message(
             chat_id=user_id,
-            text="Поделись своим номером чтобы с тобой можно связаться 👇",
+            text="Поделись своим номером чтобы с тобой можно связаться",
             reply_markup=keyboard
         )
 
-@bot.message_handler(content_types=['contact'])
-async def handle_contact(message):
-    contact = message.contact
-    user_id = message.from_user.id
+    elif step == "phone_wait":
+        phone = message.text.strip()
 
-    if user_id not in registration_data:
-        return
+        if not Validation.validate_phone(phone):
+            await bot.send_message(
+                user_id,
+                "❌ Неверный формат. Введите номер в формате +7XXXXXXXXXX (например, +79001234567):"
+            )
+            return
 
-    phone = contact.phone_number
-    registration_data[user_id]["phone"] = phone
+        registration_data[user_id]["phone"] = phone
+        registration_data[user_id]["step"] = "confirm"
 
-    data = registration_data[user_id]
-
-    text = f"""
+        data = registration_data[user_id]
+        text = f"""
         📋 Проверьте данные:
         Имя: {data['name']}
         Дата рождения: {data['birth']}
         Телефон: {phone}
-        
+    
         Всё верно?
-    """
-    kb = InlineKeyboardMarkup()
-    kb.add(
-        InlineKeyboardButton("✅ Да", callback_data="confirm"),
-        InlineKeyboardButton("❌ Нет", callback_data="cancel")
-    )
+        """
+        kb = InlineKeyboardMarkup()
+        kb.add(
+            InlineKeyboardButton("✅ Да", callback_data="confirm"),
+            InlineKeyboardButton("❌ Нет", callback_data="cancel")
+        )
 
-    await bot.send_message(
-        chat_id=user_id,
-        text=text,
-        reply_markup=kb
-    )
+        await bot.send_message(
+            chat_id=user_id,
+            text=text,
+            reply_markup=kb
+        )
 
 # connections
 async def handle_webhook(request):

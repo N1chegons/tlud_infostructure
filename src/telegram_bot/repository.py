@@ -37,9 +37,13 @@ class TelegramBotRepository:
                 username=username,
                 date_of_birth=date_of_birth,
                 phone_number=phone_number
-            )
-            await session.execute(stmt)
+            ).returning(User.id)
+
+            result = await session.execute(stmt)
             await session.commit()
+
+            user_id = result.scalar_one()
+            return user_id
 
     @classmethod
     async def update_free_consultation_status(cls, telegram_id: int):
@@ -76,3 +80,7 @@ class Validation:
             return True
         except ValueError:
             return False
+
+    @classmethod
+    def validate_phone(cls, phone: str) -> bool:
+        return bool(re.fullmatch(r"\+7\d{10}", phone))
