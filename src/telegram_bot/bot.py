@@ -60,7 +60,7 @@ async def start(message):
         reply_markup=kb
     )
 
-@bot.message_handler(commandes=['admin'])
+@bot.message_handler(commands=['admin'])
 async def admin(message):
     user_id = message.from_user.id
 
@@ -90,7 +90,6 @@ async def admin(message):
             ),
             reply_markup=kb
         )
-
 
 # admin logic
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
