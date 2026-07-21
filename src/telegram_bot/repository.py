@@ -81,6 +81,7 @@ class ConsultationRepository:
             query = select(
                 Consultation.id.label("consultation_id"),
                 Consultation.created_at,
+                Consultation.service_name,
                 Consultation.is_viewed,
             ).where(Consultation.user_id == user_id).order_by(Consultation.is_viewed.asc(), Consultation.created_at.desc()).limit(10)
 
