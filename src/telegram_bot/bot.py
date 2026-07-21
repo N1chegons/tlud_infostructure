@@ -77,7 +77,7 @@ async def start(message):
 
         await bot.send_message(
             chat_id=message.chat.id,
-            text=f"Привет!\nТы уже зарегестрирован, выбери действие ниже 👇",
+            text=f"Привет {user.username}!\nТы уже зарегестрирован, выбери действие ниже 👇",
             reply_markup=keyboard
         )
         return
@@ -404,7 +404,7 @@ async def view_my_consultation(call: CallbackQuery):
             )
 
         await bot.edit_message_text(
-            text=f"",
+            text=text,
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=kb
