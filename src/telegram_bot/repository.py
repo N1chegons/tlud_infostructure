@@ -5,7 +5,7 @@ from sqlalchemy import insert, select, update
 
 from src.db import async_session
 from src.logger_config import setup_logger
-from src.telegram_bot.models import User, Consultation
+from src.telegram_bot.models import User, Consultation, ConsultationType
 
 logger = setup_logger('repository', 'telegram', 'repository.log')
 
@@ -76,6 +76,20 @@ class ConsultationRepository:
             return rows
 
     @classmethod
+    async def get_consultation_list_by_user(cls, user_id: int):
+        async with async_session() as session:
+            query = select(
+                Consultation.id.label("consultation_id"),
+                Consultation.created_at,
+                Consultation.is_viewed,
+            ).where(Consultation.user_id == user_id).order_by(Consultation.is_viewed.asc(), Consultation.created_at.desc()).limit(10)
+
+            result = await session.execute(query)
+            rows = result.all()
+
+            return rows
+
+    @classmethod
     async def get_unviewed_consultation_list(cls):
         async with async_session() as session:
             query = select(
@@ -100,12 +114,13 @@ class ConsultationRepository:
                 update(Consultation).where(Consultation.id == consultation_id).values(is_viewed=True)
             )
             await session.commit()
+
     @classmethod
-    async def create_consultation(cls, user_id: int):
+    async def create_consultation(cls, user_id: int, service_name: str, type: ConsultationType = ConsultationType.FREE):
         async with async_session() as session:
             logger.debug(f"Запись на консультацию для пользователя ID {user_id}")
 
-            stmt = insert(Consultation).values(user_id=user_id)
+            stmt = insert(Consultation).values(user_id=user_id, service_name=service_name, type=type)
             await session.execute(stmt)
             await session.commit()
 

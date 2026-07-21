@@ -8,6 +8,7 @@ from telebot.async_telebot import AsyncTeleBot
 from src.config import settings
 from src.logger_config import setup_logger
 from src.telegram_bot.meneger_sending import notify_admins
+from src.telegram_bot.models import User
 from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository
 
 BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
@@ -25,6 +26,22 @@ def get_admins_keyboard():
     # kb.add(InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"))
     # kb.add(InlineKeyboardButton("⚙️ Настройки", callback_data="admin_settings"))r
     return kb
+
+async def show_start_menu(user: User, chat_id: int, message_id: int = None):
+    keyboard = InlineKeyboardMarkup()
+
+    keyboard.row(InlineKeyboardButton(text="👤 Профиль", callback_data="profile"))
+    keyboard.row(InlineKeyboardButton(text="📋 Мои консультации", callback_data="my_consultations"))
+    keyboard.row(InlineKeyboardButton(text="✍️ Записаться", callback_data="book"))
+
+
+    await bot.edit_message_text(
+        text=f"Привет {user.username}!\nТы уже зарегестрирован, выбери действие ниже 👇",
+        chat_id=chat_id,
+        message_id=message_id,
+        reply_markup=keyboard
+    )
+    return
 
 # start
 @bot.message_handler(commands=['start'])
@@ -51,9 +68,17 @@ async def start(message):
 
     if user.has_free_consultation:
         logger.info(f"Пользователь зарегистрирован. Запись уже была произведена")
+
+        keyboard = InlineKeyboardMarkup()
+
+        keyboard.row(InlineKeyboardButton(text="👤 Профиль",  callback_data="profile"))
+        keyboard.row(InlineKeyboardButton(text="📋 Мои консультации",  callback_data="my_consultations"))
+        keyboard.row(InlineKeyboardButton(text="✍️ Записаться",  callback_data="book"))
+
         await bot.send_message(
             chat_id=message.chat.id,
-            text="Привет! Ты уже записывался на бесплатную консультацию."
+            text=f"Привет!\nТы уже зарегестрирован, выбери действие ниже 👇",
+            reply_markup=keyboard
         )
         return
 
@@ -201,9 +226,10 @@ async def admin_back(call: CallbackQuery):
         reply_markup=get_admins_keyboard()
     )
 
-# logic
+# logic buttons
 registration_data = {}
 
+# -- free consult and register logic
 @bot.callback_query_handler(func=lambda call: call.data == "submit_request")
 async def recording_consultation(call: CallbackQuery):
     user_id = call.from_user.id
@@ -222,7 +248,7 @@ async def recording_consultation(call: CallbackQuery):
             return
 
 
-        await ConsultationRepository.create_consultation(user.id)
+        await ConsultationRepository.create_consultation(user.id, "Бесплатная консультация")
         await TelegramBotRepository.update_free_consultation_status(user_id)
 
         await notify_admins(f"Новая запись на консультацию. Клиент: {user.username}.\n\nПерейти к записям 👇")
@@ -268,7 +294,7 @@ async def confirm(call: CallbackQuery):
         user = await TelegramBotRepository.register_user(user_id, data["name"], data["birth"], data["phone"])
         user = await TelegramBotRepository.get_user(user_id)
 
-        await ConsultationRepository.create_consultation(user.id)
+        await ConsultationRepository.create_consultation(user.id, "Бесплатная консультация")
         await TelegramBotRepository.update_free_consultation_status(user_id)
 
         await notify_admins(f"Новая запись на консультацию. Клиент: {user.username}.\n\nПерейти к записям 👇")
@@ -304,6 +330,101 @@ async def cancel(call: CallbackQuery):
         text="🔄 Давай попробуем ещё раз! Как тебя зовут?"
     )
 
+# -- base logic
+@bot.callback_query_handler(func=lambda call: call.data == "profile")
+async def view_profile(call: CallbackQuery):
+    user_id = call.from_user.id
+    user = await TelegramBotRepository.get_user(user_id)
+
+    try:
+        logger.info(f"Получение профиля пользователя TG_ID {user_id}")
+        kb = InlineKeyboardMarkup()
+
+        if not user:
+            logger.warning(f"Пользователь не зарегестрирован")
+            await bot.edit_message_text(
+                text=f"❌ Видимо вы не зарегестрированы, отправить в чат для регистрации - /start",
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+            )
+            return
+
+        kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
+
+        await bot.edit_message_text(
+            text=(
+                f"👤 **Мой профиль**\n\n"
+                f"🪪 Имя: {user.username}\n"
+                f"📱 Телефон: {user.phone_number}\n"
+                f"📅 Дата рождения: {user.date_of_birth}"
+            ),
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(f"Произошла неизвестная оишбка при записи у пользователя ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
+        )
+
+@bot.callback_query_handler(func=lambda call: call.data == "my_consultations")
+async def view_my_consultation(call: CallbackQuery):
+    user_id = call.from_user.id
+    user = await TelegramBotRepository.get_user(user_id)
+
+    try:
+        logger.info(f"Получение записей пользователя TG_ID {user_id}")
+        kb = InlineKeyboardMarkup()
+
+        if not user:
+            logger.warning(f"Пользователь не зарегестрирован")
+            await bot.edit_message_text(
+                text=f"❌ Видимо вы не зарегестрированы, отправить в чат для регистрации - /start",
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+            )
+            return
+
+        kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
+
+        consultations = await ConsultationRepository.get_consultation_list_by_user(user.id)
+
+        text = "📋 **Мои записи:**\n\n"
+        for idx, row in enumerate(consultations, 1):
+            viewed_emoji = "⏳" if not row.is_viewed else "✅"
+            created_date = row.created_at.strftime("%d.%m.%Y") if row.created_at else "—"
+
+            text += (
+                f"{viewed_emoji} Запись № {idx}\n"
+                f"📌 {row.service_name}\n"
+                f"📅 Дата: {created_date}\n\n"
+            )
+
+        await bot.edit_message_text(
+            text=f"",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(f"Произошла неизвестная оишбка при записи у пользователя ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
+        )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_start")
+async def back_to_start(call: CallbackQuery):
+    user_id = call.from_user.id
+    user = await TelegramBotRepository.get_user(user_id)
+
+    await show_start_menu(user, call.message.chat.id, call.message.message_id)
+# logic text
 @bot.message_handler(func=lambda message: True)
 async def handle_text(message):
     user_id = message.from_user.id
