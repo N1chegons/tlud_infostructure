@@ -397,13 +397,13 @@ async def view_my_consultation(call: CallbackQuery):
         else:
             text = "📋 **Мои записи:**\n\n"
             for idx, row in enumerate(consultations, 1):
-                viewed_emoji = "⏳" if not row.is_viewed else "✅"
+                viewed_emoji = "⏳ - В процессе..." if not row.is_viewed else "✅ - Пройдена"
                 created_date = row.created_at.strftime("%d.%m.%Y") if row.created_at else "—"
 
                 text += (
-                    f"{viewed_emoji} Запись № {idx}\n"
-                    f"📌 {row.service_name}\n"
-                    f"📅 Дата: {created_date}\n\n"
+                    f"{idx}. {row.service_name}\n"
+                    f"Статус записи: {viewed_emoji} \n"
+                    f"📅 Дата записи: {created_date}\n\n"
                 )
 
         await bot.edit_message_text(
