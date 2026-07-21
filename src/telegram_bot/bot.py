@@ -402,7 +402,7 @@ async def view_my_consultation(call: CallbackQuery):
 
                 text += (
                     f"{idx}. {row.service_name}\n"
-                    f"Статус записи: {viewed_emoji} \n"
+                    f"📌 Статус записи: {viewed_emoji} \n"
                     f"📅 Дата записи: {created_date}\n\n"
                 )
 
