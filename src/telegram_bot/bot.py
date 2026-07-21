@@ -392,16 +392,19 @@ async def view_my_consultation(call: CallbackQuery):
 
         consultations = await ConsultationRepository.get_consultation_list_by_user(user.id)
 
-        text = "📋 **Мои записи:**\n\n"
-        for idx, row in enumerate(consultations, 1):
-            viewed_emoji = "⏳" if not row.is_viewed else "✅"
-            created_date = row.created_at.strftime("%d.%m.%Y") if row.created_at else "—"
+        if not consultations:
+            text = "📭 У вас пока нет записей."
+        else:
+            text = "📋 **Мои записи:**\n\n"
+            for idx, row in enumerate(consultations, 1):
+                viewed_emoji = "⏳" if not row.is_viewed else "✅"
+                created_date = row.created_at.strftime("%d.%m.%Y") if row.created_at else "—"
 
-            text += (
-                f"{viewed_emoji} Запись № {idx}\n"
-                f"📌 {row.service_name}\n"
-                f"📅 Дата: {created_date}\n\n"
-            )
+                text += (
+                    f"{viewed_emoji} Запись № {idx}\n"
+                    f"📌 {row.service_name}\n"
+                    f"📅 Дата: {created_date}\n\n"
+                )
 
         await bot.edit_message_text(
             text=text,
