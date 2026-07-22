@@ -305,7 +305,7 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
         )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("create_service"))
-async def admin_service_panel(call: CallbackQuery):
+async def create_service(call: CallbackQuery):
     user_id = call.from_user.id
 
     try:
@@ -327,11 +327,13 @@ async def admin_service_panel(call: CallbackQuery):
         )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_"))
-async def admin_service_panel(call: CallbackQuery):
+async def admin_service_card(call: CallbackQuery):
     service_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
 
     try:
+        logger.info(f"Администратор TG_ID {user_id} просматривает карточки консульатции с SERV_ID {service_id}")
+
         service = await ServiceRepository.get_service_by_id(service_id)
 
         text = f"""
@@ -367,6 +369,30 @@ async def admin_service_panel(call: CallbackQuery):
             show_alert=True
         )
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_delete_"))
+async def admin_service_deletel(call: CallbackQuery):
+    service_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    try:
+        logger.info(f"Администратор TG_ID {user_id} удалил запись с SERV_ID {service_id}")
+
+        await ServiceRepository.delete_service(service_id)
+
+        await admin_paid_consultations_settings(call)
+        await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
+
+
+    except Exception as e:
+        logger.error(
+            f"Произошла неизвестная ошибка при удалении у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
+
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
 async def confirm_create_service(call: CallbackQuery):
     user_id = call.from_user.id
@@ -385,7 +411,7 @@ async def confirm_create_service(call: CallbackQuery):
         del create_service_data[user_id]
 
         await admin_paid_consultations_settings(call)
-        await bot.answer_callback_query(call.id, text="✅ Услуга создана!")
+        await bot.answer_callback_query(call.id, text="✅ Консультация создана!")
 
         logger.info(f"Администратор TG_ID {user_id} успешно создал новую консультацию")
 
@@ -397,22 +423,6 @@ async def confirm_create_service(call: CallbackQuery):
             text="❌ Произошла ошибка",
             show_alert=True
         )
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_delete_"))
-async def admin_service_panel(call: CallbackQuery):
-    service_id = int(call.data.split("_")[-1])
-    user_id = call.from_user.id
-
-    try:
-        pass
-    except:
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
-
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
