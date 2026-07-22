@@ -272,7 +272,7 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
         if not paid_consultations:
             text = "😕 Платных консультаций пока нет.\n\nВы можете ее доабвить, нажмите на - ➕ Добавить"
         else:
-            text = "⚒ Выберите консультацию для редактирования:*\n\n"
+            text = "⚒ Выберите консультацию для редактирования:\n\n"
 
             for con in paid_consultations:
                 kb.row(
