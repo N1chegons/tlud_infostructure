@@ -425,9 +425,8 @@ async def admin_service_confirm_delete(call: CallbackQuery):
     try:
         await ServiceRepository.delete_service(service_id)
 
-        await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
-
         await admin_paid_consultations_settings(call)
+        await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
