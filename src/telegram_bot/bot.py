@@ -145,9 +145,9 @@ async def show_create_service_confirm(user_id: int):
         reply_markup=kb
     )
 
-async def show_delete_service_confirm(user_id: int, service_id: int):
-    kb = InlineKeyboardMarkup()
-    kb.row(
+async def show_delete_service_confirm(user_id: int, service_id: int, text):
+    keyboard = InlineKeyboardMarkup()
+    keyboard.row(
         InlineKeyboardButton("✅ Да", callback_data=f"admin_service_confirm_delete_{service_id}"),
         InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
     )
@@ -155,8 +155,8 @@ async def show_delete_service_confirm(user_id: int, service_id: int):
     await bot.edit_message_text(
         chat_id=user_id,
         message_id=user_id,
-        text="⚠️ Вы уверены, что хотите удалить эту консультацию?\n\nЭто действие необратимо.",
-        reply_markup=kb
+        text=text,
+        reply_markup=keyboard
     )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
@@ -360,7 +360,7 @@ async def admin_service_card(call: CallbackQuery):
         kb = InlineKeyboardMarkup()
         kb.row(
             InlineKeyboardButton("✏️ Редактировать", callback_data=f"admin_service_edit_{service.id}"),
-            InlineKeyboardButton("🗑️ Удалить", callback_data=f"admin_service_delete_{service_id}")
+            InlineKeyboardButton("🗑️ Удалить", callback_data=f"admin_service_delete_{service.id}")
         )
         kb.row(
             InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
@@ -386,8 +386,9 @@ async def admin_service_card(call: CallbackQuery):
 async def admin_service_delete_confirm(call: CallbackQuery):
     service_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
+    text = "⚠️ Вы уверены, что хотите удалить эту консультацию?\n\nЭто действие необратимо."
 
-    await show_delete_service_confirm(user_id, service_id)
+    await show_delete_service_confirm(user_id, service_id, text)
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
 async def confirm_create_service(call: CallbackQuery):
