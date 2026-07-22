@@ -376,10 +376,10 @@ async def admin_service_delete(call: CallbackQuery):
     try:
         logger.info(f"Администратор TG_ID {user_id} удалил запись с SERV_ID {service_id}")
 
-        await ServiceRepository.delete_service(service_id)
-
         await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
         await admin_paid_consultations_settings(call)
+
+        await ServiceRepository.delete_service(service_id)
 
     except Exception as e:
         logger.error(
