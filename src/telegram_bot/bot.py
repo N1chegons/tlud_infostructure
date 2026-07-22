@@ -375,7 +375,14 @@ async def admin_service_delete_confirm(call: CallbackQuery):
     try:
         await ServiceRepository.delete_service(service_id)
 
-        await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
+        # await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text="Удалена",
+            reply_markup=kb
+        )
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
