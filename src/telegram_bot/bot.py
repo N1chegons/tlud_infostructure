@@ -145,7 +145,7 @@ async def show_create_service_confirm(user_id: int):
         reply_markup=kb
     )
 
-async def show_delete_service_confirm(user_id: int, service_id: int, text):
+async def show_delete_service_confirm(user_id: int, mess_id: int, service_id: int, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.row(
         InlineKeyboardButton("✅ Даas", callback_data=f"admin_service_confirm_delete_{service_id}"),
@@ -156,7 +156,7 @@ async def show_delete_service_confirm(user_id: int, service_id: int, text):
         text=text,
         reply_markup=keyboard,
         chat_id=user_id,
-        message_id = user_id,
+        message_id=mess_id,
     )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
@@ -388,7 +388,7 @@ async def admin_service_delete_confirm(call: CallbackQuery):
     user_id = call.from_user.id
     text = "⚠️ Вы уверены, что хотите удалить эту консультацию?\n\nЭто действие необратимо."
 
-    await show_delete_service_confirm(user_id, service_id, text)
+    await show_delete_service_confirm(call.message.chat.id, call.message.message.id, service_id, text)
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
 async def confirm_create_service(call: CallbackQuery):
