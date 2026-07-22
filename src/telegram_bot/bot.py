@@ -380,8 +380,7 @@ async def admin_service_delete_confirm(call: CallbackQuery):
         await bot.edit_message_text(
             chat_id=user_id,
             message_id=call.message.message_id,
-            text="Удалена",
-            reply_markup=kb
+            text="Удалена"
         )
 
     except Exception as e:
