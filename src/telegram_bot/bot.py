@@ -27,7 +27,6 @@ def get_admins_keyboard():
     kb.row(InlineKeyboardButton("⚙️ Настройки консультаций", callback_data="admin_paid_consultations_settings"))
     return kb
 
-
 async def show_start_menu(user: User, chat_id: int, message_id: int = None):
     keyboard = InlineKeyboardMarkup()
 
@@ -362,7 +361,7 @@ async def admin_service_card(call: CallbackQuery):
 
     except Exception as e:
         logger.error(
-            f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+            f"Произошла неизвестная ошибка при просмотре платной консультации у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
         await bot.answer_callback_query(
             call.id,
             text="❌ Произошла ошибка",
@@ -370,7 +369,7 @@ async def admin_service_card(call: CallbackQuery):
         )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_delete_"))
-async def admin_service_deletel(call: CallbackQuery):
+async def admin_service_delete(call: CallbackQuery):
     service_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
 
@@ -379,9 +378,8 @@ async def admin_service_deletel(call: CallbackQuery):
 
         await ServiceRepository.delete_service(service_id)
 
-        await admin_paid_consultations_settings(call)
         await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
-
+        await admin_paid_consultations_settings(call)
 
     except Exception as e:
         logger.error(
