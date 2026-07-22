@@ -283,11 +283,10 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
                     )
                 )
 
-            kb.row(InlineKeyboardButton("🗑️ Удалить консультацию", callback_data="admin_delete_service"))
-
         kb.add(
             InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
-            InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
+            InlineKeyboardButton("🔙 Назад", callback_data="admin_back"),
+            InlineKeyboardButton("🗑️ Удалить", callback_data="admin_delete_service")
         )
 
         await bot.edit_message_text(
@@ -298,6 +297,9 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
         )
 
     except Exception as e:
+        if "Error code: 400" in str(e):
+            pass
+
         logger.error(
             f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
         await bot.send_message(
