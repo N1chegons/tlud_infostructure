@@ -282,6 +282,7 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
                         callback_data=f"admin_service_{con.id}"
                     )
                 )
+                kb.row(InlineKeyboardButton("🗑️ Удалить консультацию", callback_data="admin_delete_service"))
 
         kb.add(
             InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
@@ -346,7 +347,6 @@ async def admin_service_card(call: CallbackQuery):
         kb = InlineKeyboardMarkup()
         kb.row(
             InlineKeyboardButton("✏️ Редактировать", callback_data=f"admin_service_edit_{service.id}"),
-            InlineKeyboardButton("🗑️ Удалить", callback_data=f"admin_service_delete_{service.id}")
         )
         kb.row(
             InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
@@ -367,21 +367,52 @@ async def admin_service_card(call: CallbackQuery):
             show_alert=True
         )
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_delete_"))
-async def admin_service_delete_confirm(call: CallbackQuery):
+@bot.callback_query_handler(func=lambda call: call.data == "admin_delete_service")
+async def admin_delete_service_list(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    services = await ServiceRepository.get_services_list()
+
+    if not services:
+        await bot.answer_callback_query(call.id, text="😕 Нет услуг для удаления", show_alert=True)
+        return
+
+    text = "🗑️ Выберите услугу для удаления:\n\n"
+    for idx, service in enumerate(services, 1):
+        text += f"{idx}. {service.name} — {service.price} ₽\n"
+
+    text += "\nВыберите номер услуги, чтобы удалить её:"
+
+    kb = InlineKeyboardMarkup()
+    row = []
+    for idx, service in enumerate(services, 1):
+        row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_delete_service_{service.id}"))
+        if len(row) == 5:
+            kb.row(*row)
+            row = []
+    if row:
+        kb.row(*row)
+
+    kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings"))
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=text,
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_delete_service_"))
+async def admin_delete_service_confirm(call: CallbackQuery):
     service_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
 
     try:
         await ServiceRepository.delete_service(service_id)
 
-        # await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
+        await bot.answer_callback_query(call.id, text="✅ Услуга удалена!")
 
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text="Удалена"
-        )
+        await admin_delete_service_list(call)
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
