@@ -388,6 +388,9 @@ async def admin_service_card(call: CallbackQuery):
         )
 
     except Exception as e:
+        if "Error code: 400" in str(e):
+            pass
+
         logger.error(f"Ошибка при просмотре: {e}")
         await bot.answer_callback_query(
             call.id,
