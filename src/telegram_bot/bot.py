@@ -20,28 +20,37 @@ app = web.Application()
 bot = AsyncTeleBot(BOT_TOKEN)
 logger = setup_logger('telegram_bot', 'bot', 'bot.log')
 
+
 # utilits
+async def safe_edit_message(chat_id, message_id, text, reply_markup=None):
+    try:
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=text,
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        if "message is not modified" not in str(e):
+            raise
+
+
 def get_admins_keyboard():
     kb = InlineKeyboardMarkup()
     kb.row(InlineKeyboardButton("📋 Посмотреть записи", callback_data="admin_view_consultations"))
-    kb.row(InlineKeyboardButton("⚙️ Настройки консультаций", callback_data="admin_paid_consultations_settings"))
+    kb.row(InlineKeyboardButton("⚙️ Управление консультациями", callback_data="admin_paid_consultations_settings"))
     return kb
+
 
 async def show_start_menu(user: User, chat_id: int, message_id: int = None):
     keyboard = InlineKeyboardMarkup()
-
     keyboard.row(InlineKeyboardButton(text="👤 Профиль", callback_data="profile"))
     keyboard.row(InlineKeyboardButton(text="📋 Мои консультации", callback_data="my_consultations"))
     keyboard.row(InlineKeyboardButton(text="✍️ Записаться", callback_data="book"))
 
+    await safe_edit_message(chat_id, message_id,
+                            f"Привет {user.username}!\nТы уже зарегистрирован, выбери действие ниже 👇", keyboard)
 
-    await bot.edit_message_text(
-        text=f"Привет {user.username}!\nТы уже зарегестрирован, выбери действие ниже 👇",
-        chat_id=chat_id,
-        message_id=message_id,
-        reply_markup=keyboard
-    )
-    return
 
 # start
 @bot.message_handler(commands=['start'])
@@ -70,14 +79,13 @@ async def start(message):
         logger.info(f"Пользователь зарегистрирован. Запись уже была произведена")
 
         keyboard = InlineKeyboardMarkup()
-
-        keyboard.row(InlineKeyboardButton(text="👤 Профиль",  callback_data="profile"))
-        keyboard.row(InlineKeyboardButton(text="📋 Мои консультации",  callback_data="my_consultations"))
-        keyboard.row(InlineKeyboardButton(text="✍️ Записаться",  callback_data="book"))
+        keyboard.row(InlineKeyboardButton(text="👤 Профиль", callback_data="profile"))
+        keyboard.row(InlineKeyboardButton(text="📋 Мои консультации", callback_data="my_consultations"))
+        keyboard.row(InlineKeyboardButton(text="✍️ Записаться", callback_data="book"))
 
         await bot.send_message(
             chat_id=message.chat.id,
-            text=f"Привет {user.username}!\nТы уже зарегестрирован, выбери действие ниже 👇",
+            text=f"Привет {user.username}!\nТы уже зарегистрирован, выбери действие ниже 👇",
             reply_markup=keyboard
         )
         return
@@ -93,6 +101,7 @@ async def start(message):
              "Готов узнать, что в тебе зашифровано? 👇",
         reply_markup=kb
     )
+
 
 @bot.message_handler(commands=['admin'])
 async def admin(message):
@@ -118,9 +127,11 @@ async def admin(message):
             reply_markup=get_admins_keyboard()
         )
 
+
 # admin logic
 create_service_data = {}
 edit_service_data = {}
+
 
 async def show_create_service_confirm(user_id: int):
     data = create_service_data[user_id]
@@ -146,6 +157,7 @@ async def show_create_service_confirm(user_id: int):
         reply_markup=kb
     )
 
+
 async def show_edit_service_confirm(user_id: int):
     data = edit_service_data[user_id]
 
@@ -170,6 +182,7 @@ async def show_edit_service_confirm(user_id: int):
         reply_markup=kb
     )
 
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
 async def admin_view_consultations(call: CallbackQuery):
     user_id = call.from_user.id
@@ -179,11 +192,7 @@ async def admin_view_consultations(call: CallbackQuery):
         consultations = await ConsultationRepository.get_consultation_list()
 
         if not consultations:
-            await bot.edit_message_text(
-                chat_id=user_id,
-                message_id=call.message.message_id,
-                text="📭 Записей пока нет.",
-            )
+            await safe_edit_message(user_id, call.message.message_id, "📭 Записей пока нет.")
             return
 
         text = "📋 **Записи на консультацию:**\n\n"
@@ -196,23 +205,14 @@ async def admin_view_consultations(call: CallbackQuery):
             )
         kb = InlineKeyboardMarkup()
         kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"))
-        kb.row( InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
+        kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
 
-
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
-        )
+        await safe_edit_message(user_id, call.message.message_id, text, kb)
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed")
 async def admin_mark_viewed(call: CallbackQuery):
@@ -240,7 +240,7 @@ async def admin_mark_viewed(call: CallbackQuery):
         kb = InlineKeyboardMarkup()
         row = []
         for idx, row_data in enumerate(unviewed, 1):
-            row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_{row_data.consultation_id}"))  # 👈 ИСПРАВИЛ
+            row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_{row_data.consultation_id}"))
             if len(row) == 5:
                 kb.row(*row)
                 row = []
@@ -249,20 +249,12 @@ async def admin_mark_viewed(call: CallbackQuery):
 
         kb.add(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_consultations"))
 
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
-        )
+        await safe_edit_message(user_id, call.message.message_id, text, kb)
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная ошибка при помечании у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_"))
 async def admin_mark_single(call: CallbackQuery):
@@ -277,11 +269,9 @@ async def admin_mark_single(call: CallbackQuery):
         await admin_mark_viewed(call)
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная ошибка при помечани одной записи у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная ошибка",
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_paid_consultations_settings")
 async def admin_paid_consultations_settings(call: CallbackQuery):
@@ -291,46 +281,34 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
         del create_service_data[user_id]
 
     try:
-        kb = InlineKeyboardMarkup()
+        services = await ServiceRepository.get_services_list()
 
-        paid_consultations = await ServiceRepository.get_services_list()
-
-        if not paid_consultations:
+        if not services:
             text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на - ➕ Добавить"
+            kb = InlineKeyboardMarkup()
+            kb.row(InlineKeyboardButton("➕ Добавить", callback_data="create_service"))
+            kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
         else:
-            text = "⚒ Выберите консультацию для редактирования:\n\n"
+            text = "📋 **Список консультаций:**\n\n"
+            kb = InlineKeyboardMarkup()
 
-            for con in paid_consultations:
+            for service in services:
                 kb.row(
                     InlineKeyboardButton(
-                        f"💬 {con.name}",
-                        callback_data=f"admin_service_{con.id}"
+                        f"💬 {service.name} — {service.price} ₽",
+                        callback_data=f"admin_service_{service.id}"
                     )
                 )
 
-        kb.add(
-            InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
-            InlineKeyboardButton("🔙 Назад", callback_data="admin_back"),
-            InlineKeyboardButton("🗑️ Удалить", callback_data="admin_delete_service")
-        )
+            kb.row(InlineKeyboardButton("➕ Добавить", callback_data="create_service"))
+            kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
 
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
-        )
+        await safe_edit_message(user_id, call.message.message_id, text, kb)
 
     except Exception as e:
-        if "Error code: 400" in str(e):
-            pass
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
-        logger.error(
-            f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная ошибка",
-        )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("create_service"))
 async def create_service(call: CallbackQuery):
@@ -339,20 +317,16 @@ async def create_service(call: CallbackQuery):
     try:
         create_service_data[user_id] = {}
 
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text="✏️ Введите название консультации:"
+        await safe_edit_message(
+            user_id,
+            call.message.message_id,
+            "✏️ Введите название консультации:"
         )
 
     except Exception as e:
-        logger.error(
-            f"Произошла неизвестная ошибка при создании у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_"))
 async def admin_service_card(call: CallbackQuery):
@@ -380,23 +354,12 @@ async def admin_service_card(call: CallbackQuery):
             InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
         )
 
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
-        )
+        await safe_edit_message(user_id, call.message.message_id, text, kb)
 
     except Exception as e:
-        if "Error code: 400" in str(e):
-            pass
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
-        logger.error(f"Ошибка при просмотре: {e}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_edit_"))
 async def admin_service_edit_start(call: CallbackQuery):
@@ -412,11 +375,12 @@ async def admin_service_edit_start(call: CallbackQuery):
         "price": service.price
     }
 
-    await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=call.message.message_id,
-        text=f"✏️ Введите новое название услуги:\n\n(текущее: {service.name})"
+    await safe_edit_message(
+        user_id,
+        call.message.message_id,
+        f"✏️ Введите новое название услуги:\n\n(текущее: {service.name})"
     )
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_edit_service")
 async def confirm_edit_service(call: CallbackQuery):
@@ -441,8 +405,9 @@ async def confirm_edit_service(call: CallbackQuery):
         await admin_paid_consultations_settings(call)
 
     except Exception as e:
-        logger.error(f"Ошибка при редактировании: {e}")
+        logger.error(f"Ошибка: {e}")
         await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete_service")
 async def admin_delete_service_list(call: CallbackQuery):
@@ -458,7 +423,7 @@ async def admin_delete_service_list(call: CallbackQuery):
     for idx, service in enumerate(services, 1):
         text += f"{idx}. {service.name} — {service.price} ₽\n"
 
-    text += "\nВыберите номер конусльтации, чтобы удалить её:"
+    text += "\nВыберите номер консультации, чтобы удалить её:"
 
     kb = InlineKeyboardMarkup()
     row = []
@@ -472,12 +437,8 @@ async def admin_delete_service_list(call: CallbackQuery):
 
     kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings"))
 
-    await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=call.message.message_id,
-        text=text,
-        reply_markup=kb
-    )
+    await safe_edit_message(user_id, call.message.message_id, text, kb)
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_delete_service_"))
 async def admin_delete_service_confirm(call: CallbackQuery):
@@ -492,8 +453,9 @@ async def admin_delete_service_confirm(call: CallbackQuery):
         await admin_paid_consultations_settings(call)
 
     except Exception as e:
-        logger.error(f"Ошибка при удалении: {e}")
+        logger.error(f"Ошибка: {e}")
         await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
 async def confirm_create_service(call: CallbackQuery):
@@ -519,34 +481,30 @@ async def confirm_create_service(call: CallbackQuery):
         logger.info(f"Администратор TG_ID {user_id} успешно создал новую консультацию")
 
     except Exception as e:
-        logger.error(f"Ошибка при создании: {e}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
     user_id = call.from_user.id
 
-    await bot.edit_message_text(
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        text=(
-            "🔐 **Админ-панель**\n\n"
-            "Добро пожаловать в панель управления ботом!\n"
-            "Здесь вы можете управлять записями на консультацию\n\n"
-            "📌 **Доступные действия:**\n"
-            "• 📋 Просмотр всех записей\n"
-            "• ⚙️ Управление консультациями\n\n"
-            "Выберите действие ниже 👇"
-        ),
-        reply_markup=get_admins_keyboard()
+    await safe_edit_message(
+        user_id,
+        call.message.message_id,
+        "🔐 **Админ-панель**\n\n"
+        "Добро пожаловать в панель управления ботом!\n"
+        "📌 **Доступные действия:**\n"
+        "• 📋 Просмотр всех записей\n"
+        "• ⚙️ Управление консультациями\n\n"
+        "Выберите действие ниже 👇",
+        get_admins_keyboard()
     )
+
 
 # logic buttons
 registration_data = {}
+
 
 # -- free consult and register logic
 @bot.callback_query_handler(func=lambda call: call.data == "submit_request")
@@ -558,33 +516,29 @@ async def recording_consultation(call: CallbackQuery):
         logger.info(f"Пользователь TG_ID {user_id} записывается на консультацию")
 
         if not user:
-            logger.warning(f"Пользователь не зарегестрирован")
-            await bot.edit_message_text(
-                text=f"❌ Видимо вы не зарегестрированы, отправить в чат для регистрации - /start",
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
+            logger.warning(f"Пользователь не зарегистрирован")
+            await safe_edit_message(
+                call.message.chat.id,
+                call.message.message_id,
+                "❌ Видимо вы не зарегистрированы, отправьте в чат для регистрации - /start"
             )
             return
-
 
         await ConsultationRepository.create_consultation(user.id, "Бесплатная консультация")
         await TelegramBotRepository.update_free_consultation_status(user_id)
 
         await notify_admins(f"Новая запись на консультацию. Клиент: {user.username}.\n\nПерейти к записям 👇")
 
-        await bot.edit_message_text(
-            text=f"✅ {user.username}, вы успешно записались на консультацию! Ожидайте ответа...",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
+        await safe_edit_message(
+            call.message.chat.id,
+            call.message.message_id,
+            f"✅ {user.username}, вы успешно записались на консультацию! Ожидайте ответа..."
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная ошибка при записи у пользователя ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "register")
 async def register(call: CallbackQuery):
@@ -592,8 +546,16 @@ async def register(call: CallbackQuery):
 
     registration_data[user_id] = {"step": "name"}
 
-    await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Ты еще не зарегестрирован, давай пройдем небольшую регистрацию!")
-    await bot.send_message(chat_id=call.message.chat.id, text="✏️ Для начала, как тебя зовут?\n (Введите имя используя латиницу, пример: Ivan)")
+    await safe_edit_message(
+        call.message.chat.id,
+        call.message.message_id,
+        "Ты еще не зарегистрирован, давай пройдем небольшую регистрацию!"
+    )
+    await bot.send_message(
+        chat_id=call.message.chat.id,
+        text="✏️ Для начала, как тебя зовут?\n (Введите имя используя латиницу, пример: Ivan)"
+    )
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm")
 async def confirm(call: CallbackQuery):
@@ -601,12 +563,13 @@ async def confirm(call: CallbackQuery):
     data = registration_data.get(user_id)
 
     if not data:
-        logger.warning(f"Пользователь не зарегестрирован")
-        await bot.edit_message_text(
-            text=f"❌ Видимо вы не зарегестрированы, отправьте в чат для регистрации - /start",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
+        logger.warning(f"Пользователь не зарегистрирован")
+        await safe_edit_message(
+            call.message.chat.id,
+            call.message.message_id,
+            "❌ Видимо вы не зарегистрированы, отправьте в чат для регистрации - /start"
         )
+        return
 
     try:
         logger.info(f"Регистрация для пользователя TG_ID {user_id}")
@@ -621,20 +584,16 @@ async def confirm(call: CallbackQuery):
 
         del registration_data[user_id]
 
-
-        await bot.edit_message_text(
-            text=f"✅ {user.username}, вы успешно записались на консультацию! Ожидайте ответа...",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
+        await safe_edit_message(
+            call.message.chat.id,
+            call.message.message_id,
+            f"✅ {user.username}, вы успешно записались на консультацию! Ожидайте ответа..."
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная оишбка при регистрации у пользователя ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel")
 async def cancel(call: CallbackQuery):
@@ -645,11 +604,12 @@ async def cancel(call: CallbackQuery):
 
     registration_data[user_id] = {"step": "name"}
 
-    await bot.edit_message_text(
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        text="🔄 Давай попробуем ещё раз! Как тебя зовут?"
+    await safe_edit_message(
+        call.message.chat.id,
+        call.message.message_id,
+        "🔄 Давай попробуем ещё раз! Как тебя зовут?"
     )
+
 
 # -- base logic
 @bot.callback_query_handler(func=lambda call: call.data == "profile")
@@ -662,35 +622,30 @@ async def view_profile(call: CallbackQuery):
         kb = InlineKeyboardMarkup()
 
         if not user:
-            logger.warning(f"Пользователь не зарегестрирован")
-            await bot.edit_message_text(
-                text=f"❌ Видимо вы не зарегестрированы, отправить в чат для регистрации - /start",
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
+            logger.warning(f"Пользователь не зарегистрирован")
+            await safe_edit_message(
+                call.message.chat.id,
+                call.message.message_id,
+                "❌ Видимо вы не зарегистрированы, отправьте в чат для регистрации - /start"
             )
             return
 
         kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
 
-        await bot.edit_message_text(
-            text=(
-                f"👤 Мой профиль\n\n"
-                f"🪪 Имя: {user.username}\n"
-                f"📱 Телефон: {user.phone_number}\n"
-                f"📅 Дата рождения: {user.date_of_birth}"
-            ),
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=kb
+        await safe_edit_message(
+            call.message.chat.id,
+            call.message.message_id,
+            f"👤 Мой профиль\n\n"
+            f"🪪 Имя: {user.username}\n"
+            f"📱 Телефон: {user.phone_number}\n"
+            f"📅 Дата рождения: {user.date_of_birth}",
+            kb
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная ошибка при получении профиля у пользователя ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "my_consultations")
 async def view_my_consultation(call: CallbackQuery):
@@ -702,11 +657,11 @@ async def view_my_consultation(call: CallbackQuery):
         kb = InlineKeyboardMarkup()
 
         if not user:
-            logger.warning(f"Пользователь не зарегестрирован")
-            await bot.edit_message_text(
-                text=f"❌ Видимо вы не зарегестрированы, отправить в чат для регистрации - /start",
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
+            logger.warning(f"Пользователь не зарегистрирован")
+            await safe_edit_message(
+                call.message.chat.id,
+                call.message.message_id,
+                "❌ Видимо вы не зарегистрированы, отправьте в чат для регистрации - /start"
             )
             return
 
@@ -728,20 +683,17 @@ async def view_my_consultation(call: CallbackQuery):
                     f"📅 Дата записи: {created_date}\n\n"
                 )
 
-        await bot.edit_message_text(
-            text=text,
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=kb
+        await safe_edit_message(
+            call.message.chat.id,
+            call.message.message_id,
+            text,
+            kb
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная ошибка при получение записей у пользователя ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "book")
 async def view_paid_consultation(call: CallbackQuery):
@@ -756,10 +708,8 @@ async def view_paid_consultation(call: CallbackQuery):
 
         if not paid_consultations:
             text = "😕 Платных консультаций пока нет."
-
         else:
             text = "💳 Выберите консультацию:\n\n"
-
             for con in paid_consultations:
                 kb.row(
                     InlineKeyboardButton(
@@ -770,20 +720,17 @@ async def view_paid_consultation(call: CallbackQuery):
 
         kb.row(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
 
-        await bot.edit_message_text(
-            text=text,
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=kb
+        await safe_edit_message(
+            call.message.chat.id,
+            call.message.message_id,
+            text,
+            kb
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная оишбка при просмотре консультаций ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("service_"))
 async def service_card(call: CallbackQuery):
@@ -791,7 +738,7 @@ async def service_card(call: CallbackQuery):
     user_id = call.from_user.id
 
     try:
-        logger.info(f"Пользовтель TG_ID {user_id} просматривает платную консультацию с ID {service_id}")
+        logger.info(f"Пользователь TG_ID {user_id} просматривает платную консультацию с ID {service_id}")
         service = await ServiceRepository.get_service_by_id(service_id)
 
         text = f"""
@@ -806,20 +753,17 @@ async def service_card(call: CallbackQuery):
         kb.row(InlineKeyboardButton(f"💳 Оплатить {service.price} ₽", url="/"))
         kb.row(InlineKeyboardButton("🔙 Назад", callback_data="book"))
 
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
+        await safe_edit_message(
+            call.message.chat.id,
+            call.message.message_id,
+            text,
+            kb
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная ошибка при просмотре консультации с SERV_ID {service_id}, TG_ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_start")
 async def back_to_start(call: CallbackQuery):
@@ -849,14 +793,13 @@ async def handle_create_service_text(message):
         try:
             price = float(message.text.strip())
             data["price"] = price
-
             await show_create_service_confirm(user_id)
-
         except ValueError:
             await bot.send_message(
                 chat_id=user_id,
                 text="❌ Неверный формат. Введите число, например: 3000"
             )
+
 
 @bot.message_handler(func=lambda message: message.from_user.id in edit_service_data)
 async def handle_edit_service_text(message):
@@ -868,7 +811,6 @@ async def handle_edit_service_text(message):
     if step == "name":
         data["name"] = message.text.strip()
         data["step"] = "price"
-
         await bot.send_message(
             chat_id=user_id,
             text=f"💰 Введите новую цену консультации:\n\n(текущая: {data['price']} ₽)"
@@ -879,14 +821,13 @@ async def handle_edit_service_text(message):
             price = float(message.text.strip())
             data["price"] = price
             data["step"] = "confirm"
-
             await show_edit_service_confirm(user_id)
-
         except ValueError:
             await bot.send_message(
                 chat_id=user_id,
                 text="❌ Неверный формат. Введите число, например: 3000"
             )
+
 
 @bot.message_handler(func=lambda message: True)
 async def handle_text(message):
@@ -900,17 +841,21 @@ async def handle_text(message):
     if step == "name":
         name = message.text.strip()
         if not Validation.validate_name(name):
-            await bot.send_message(chat_id=user_id,
-                                   text="❌ Имя должно быть на латинице, без пробелов. Пример: Ivan")
+            await bot.send_message(
+                chat_id=user_id,
+                text="❌ Имя должно быть на латинице, без пробелов. Пример: Ivan"
+            )
             return
 
         registration_data[user_id]["name"] = message.text
         registration_data[user_id]["step"] = "birth"
-        await bot.send_message(chat_id=user_id, text="📅 Теперь дату рождения, в формате ДД.ММ.ГГГГ (Пример: 31.01.2000):")
+        await bot.send_message(
+            chat_id=user_id,
+            text="📅 Теперь дату рождения, в формате ДД.ММ.ГГГГ (Пример: 31.01.2000):"
+        )
 
     elif step == "birth":
         birth = message.text.strip()
-
         if not Validation.validate_date(birth):
             await bot.send_message(
                 chat_id=user_id,
@@ -920,7 +865,6 @@ async def handle_text(message):
 
         registration_data[user_id]["birth"] = message.text
         registration_data[user_id]["step"] = "phone_wait"
-
         await bot.send_message(
             chat_id=user_id,
             text="📱 Поделись своим номером, чтобы с тобой можно было связаться \n(формат: +79001234567):"
@@ -928,7 +872,6 @@ async def handle_text(message):
 
     elif step == "phone_wait":
         phone = message.text.strip()
-
         if not Validation.validate_phone(phone):
             await bot.send_message(
                 user_id,
@@ -945,7 +888,7 @@ async def handle_text(message):
         Имя: {data['name']}
         Дата рождения: {data['birth']}
         Телефон: {phone}
-    
+
         Всё верно?
         """
         kb = InlineKeyboardMarkup()
@@ -959,6 +902,7 @@ async def handle_text(message):
             text=text,
             reply_markup=kb
         )
+
 
 # connections
 async def handle_webhook(request):
@@ -975,7 +919,9 @@ async def handle_webhook(request):
         logger.error(f"Webhook error: {e}", exc_info=True)
         return web.Response(status=200, text="OK")
 
+
 app.router.add_post(WEBHOOK_PATH, handle_webhook)
+
 
 async def main():
     await bot.delete_webhook()
@@ -988,6 +934,7 @@ async def main():
     logger.info("Бот запущен")
 
     await asyncio.Event().wait()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
