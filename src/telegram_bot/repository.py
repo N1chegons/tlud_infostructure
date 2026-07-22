@@ -156,7 +156,7 @@ class ServiceRepository:
     async def get_service_by_id(cls, service_id: int):
         async with async_session() as session:
             logger.debug(f"Получение конкретной платной консультации, входные данные ID {service_id}")
-            query = select(Service).filter_by(id=service_id).order_by(Service.price.asc())
+            query = select(Service).filter_by(id=service_id)
 
             result = await session.execute(query)
             service = result.scalar_one_or_none()

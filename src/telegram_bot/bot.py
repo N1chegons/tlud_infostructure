@@ -720,7 +720,7 @@ async def service_card(call: CallbackQuery):
         """
 
         kb = InlineKeyboardMarkup()
-        kb.row(InlineKeyboardButton(f"💳 Оплатить {service.price} ₽"))
+        kb.row(InlineKeyboardButton(f"💳 Оплатить {service.price} ₽", callback_data="foo"))
         kb.row(InlineKeyboardButton("🔙 Назад", callback_data="book"))
 
         await bot.edit_message_text(
