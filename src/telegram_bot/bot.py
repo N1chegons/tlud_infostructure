@@ -351,7 +351,7 @@ async def admin_service_card(call: CallbackQuery):
 
         text = f"""
 📌 **{service.name}**
-
+6hg
 💰 Цена: {service.price} ₽
 
 Выберите действие:
@@ -360,7 +360,7 @@ async def admin_service_card(call: CallbackQuery):
         kb = InlineKeyboardMarkup()
         kb.row(
             InlineKeyboardButton("✏️ Редактировать", callback_data=f"admin_service_edit_{service.id}"),
-            InlineKeyboardButton("🗑️ Удалить", callback_data=f"admin_service_delete_{service.id}")
+            InlineKeyboardButton("🗑️ Удалить", callback_data=f"admin_service_delete_{service_id}")
         )
         kb.row(
             InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
