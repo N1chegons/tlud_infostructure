@@ -379,6 +379,7 @@ async def confirm_create_service(call: CallbackQuery):
 
     del create_service_data[user_id]
 
+    await admin_paid_consultations_settings(call)
     await bot.answer_callback_query(call.id, text="✅ Услуга создана!")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")

@@ -137,7 +137,7 @@ class ServiceRepository:
             query = select(Service).order_by(Service.price.asc())
 
             result = await session.execute(query)
-            services = result.all()
+            services = result.scalars().all()
 
             return services
 
