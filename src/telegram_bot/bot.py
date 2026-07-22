@@ -152,11 +152,10 @@ async def show_delete_service_confirm(user_id: int, mess_id: int, service_id: in
         InlineKeyboardButton("❌ Нетas", callback_data="admin_paid_consultations_settings")
     )
 
-    await bot.edit_message_text(
+    await bot.send_message(
+        chat_id=user_id,
         text=text,
         reply_markup=keyboard,
-        chat_id=user_id,
-        message_id=mess_id,
     )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
