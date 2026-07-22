@@ -2,14 +2,15 @@ import asyncio
 import telebot
 from aiohttp import web
 
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, KeyboardButton, ReplyKeyboardMarkup
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from telebot.async_telebot import AsyncTeleBot
 
 from src.config import settings
 from src.logger_config import setup_logger
 from src.telegram_bot.meneger_sending import notify_admins
 from src.telegram_bot.models import User
-from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository
+from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository, \
+    ServiceRepository
 
 BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 WEBHOOK_PATH = settings.WEBHOOK_PATH
@@ -22,10 +23,10 @@ logger = setup_logger('telegram_bot', 'bot', 'bot.log')
 # utilits
 def get_admins_keyboard():
     kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("📋 Посмотреть записи", callback_data="admin_view_consultations"))
-    # kb.add(InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"))
-    # kb.add(InlineKeyboardButton("⚙️ Настройки", callback_data="admin_settings"))r
+    kb.row(InlineKeyboardButton("📋 Посмотреть записи", callback_data="admin_view_consultations"))
+    kb.row(InlineKeyboardButton("⚙️ Настройки консультаций", callback_data="admin_paid_consultations_settings"))
     return kb
+
 
 async def show_start_menu(user: User, chat_id: int, message_id: int = None):
     keyboard = InlineKeyboardMarkup()
@@ -109,101 +110,276 @@ async def admin(message):
             text=(
                 "🔐 **Админ-панель**\n\n"
                 "Добро пожаловать в панель управления ботом!\n"
-                # "Здесь вы можете управлять записями на консультацию, "
-                # "смотреть статистику и отслеживать активность клиентов.\n\n"
+                "Здесь вы можете управлять записями на консультацию\n\n"
                 "📌 **Доступные действия:**\n"
                 "• 📋 Просмотр всех записей\n"
-                # "• 📊 Статистика по консультациям\n"
-                # "• ⚙️ Управление настройками\n\n"
+                "• ⚙️ Управление консультациями\n\n"
                 "Выберите действие ниже 👇"
             ),
             reply_markup=get_admins_keyboard()
         )
 
 # admin logic
+create_service_data = {}
+
+async def show_create_service_confirm(user_id: int):
+    data = create_service_data[user_id]
+
+    text = f"""
+📋 **Проверьте данные новой услуги:**
+
+📌 Название: {data['name']}
+💰 Цена: {data['price']} ₽
+
+Всё верно?
+    """
+
+    kb = InlineKeyboardMarkup()
+    kb.row(
+        InlineKeyboardButton("✅ Да", callback_data="confirm_create_service"),
+        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
+    )
+
+    await bot.send_message(
+        chat_id=user_id,
+        text=text,
+        reply_markup=kb
+    )
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
 async def admin_view_consultations(call: CallbackQuery):
     user_id = call.from_user.id
 
-    consultations = await ConsultationRepository.get_consultation_list()
+    try:
+        logger.info(f"Администратор ID {user_id} просматривает список заявок на бесплатную консультацию")
+        consultations = await ConsultationRepository.get_consultation_list()
 
-    if not consultations:
+        if not consultations:
+            await bot.edit_message_text(
+                chat_id=user_id,
+                message_id=call.message.message_id,
+                text="📭 Записей пока нет.",
+            )
+            return
+
+        text = "📋 **Записи на консультацию:**\n\n"
+        for idx, row in enumerate(consultations, 1):
+            viewed_emoji = "🆕" if not row.is_viewed else "✅"
+            text += (
+                f"{viewed_emoji} {idx}. {row.username}\n"
+                f"   📱 {row.phone_number}\n"
+                f"   📅 {row.date_of_birth}\n\n"
+            )
+        kb = InlineKeyboardMarkup()
+        kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"))
+        kb.row( InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
+
+
         await bot.edit_message_text(
             chat_id=user_id,
             message_id=call.message.message_id,
-            text="📭 Записей пока нет.",
+            text=text,
+            reply_markup=kb
         )
-        return
 
-    text = "📋 **Записи на консультацию:**\n\n"
-    for idx, row in enumerate(consultations, 1):
-        viewed_emoji = "🆕" if not row.is_viewed else "✅"
-        text += (
-            f"{viewed_emoji} {idx}. {row.username}\n"
-            f"   📱 {row.phone_number}\n"
-            f"   📅 {row.date_of_birth}\n\n"
+    except Exception as e:
+        logger.error(f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
         )
-    kb = InlineKeyboardMarkup()
-    kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"))
-    kb.row( InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
-
-
-    await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=call.message.message_id,
-        text=text,
-        reply_markup=kb
-    )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed")
 async def admin_mark_viewed(call: CallbackQuery):
     user_id = call.from_user.id
 
-    unviewed = await ConsultationRepository.get_unviewed_consultation_list()
+    try:
+        logger.info(f"Администратор ID {user_id} отмечает просмотренную заявку")
+        unviewed = await ConsultationRepository.get_unviewed_consultation_list()
 
-    if not unviewed:
-        await bot.answer_callback_query(call.id, "✅ Все записи уже просмотрены!")
-        await admin_view_consultations(call)
-        return
+        if not unviewed:
+            await bot.answer_callback_query(call.id, "✅ Все записи уже просмотрены!")
+            await admin_view_consultations(call)
+            return
 
-    text = "🆕 **Непросмотренные записи:**\n\n"
-    for idx, row in enumerate(unviewed, 1):
-        text += (
-            f"{idx}. {row.username}\n"
-            f"   📱 {row.phone_number}\n"
-            f"   📅 {row.date_of_birth}\n\n"
+        text = "🆕 **Непросмотренные записи:**\n\n"
+        for idx, row in enumerate(unviewed, 1):
+            text += (
+                f"{idx}. {row.username}\n"
+                f"   📱 {row.phone_number}\n"
+                f"   📅 {row.date_of_birth}\n\n"
+            )
+
+        text += "\nВыберите номер записи, чтобы отметить её как просмотренную:"
+
+        kb = InlineKeyboardMarkup()
+        row = []
+        for idx, row_data in enumerate(unviewed, 1):
+            row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_{row_data.consultation_id}"))  # 👈 ИСПРАВИЛ
+            if len(row) == 5:
+                kb.row(*row)
+                row = []
+        if row:
+            kb.row(*row)
+
+        kb.add(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_consultations"))
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
         )
 
-    text += "\nВыберите номер записи, чтобы отметить её как просмотренную:"
-
-    kb = InlineKeyboardMarkup()
-    row = []
-    for idx, row_data in enumerate(unviewed, 1):
-        row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_{row_data.consultation_id}"))  # 👈 ИСПРАВИЛ
-        if len(row) == 5:
-            kb.row(*row)
-            row = []
-    if row:
-        kb.row(*row)
-
-    kb.add(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_consultations"))
-
-    await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=call.message.message_id,
-        text=text,
-        reply_markup=kb
-    )
+    except Exception as e:
+        logger.error(f"Произошла неизвестная ошибка при помечании у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
+        )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_"))
 async def admin_mark_single(call: CallbackQuery):
+    user_id = call.from_user.id
     consultation_id = int(call.data.split("_")[-1])
 
-    await ConsultationRepository.mark_as_viewed(consultation_id)
+    try:
+        await ConsultationRepository.mark_as_viewed(consultation_id)
 
-    await bot.answer_callback_query(call.id, "✅ Запись отмечена как просмотренная!")
+        await bot.answer_callback_query(call.id, "✅ Запись отмечена как просмотренная!")
 
-    await admin_mark_viewed(call)
+        await admin_mark_viewed(call)
+
+    except Exception as e:
+        logger.error(f"Произошла неизвестная ошибка при помечани одной записи у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
+        )
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_paid_consultations_settings")
+async def admin_paid_consultations_settings(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    if user_id in create_service_data:
+        del create_service_data[user_id]
+
+    try:
+        kb = InlineKeyboardMarkup()
+
+        paid_consultations = await ServiceRepository.get_services_list()
+
+        if not paid_consultations:
+            text = "😕 Платных консультаций пока нет.\n\nВы можете ее доабвить, нажмите на - ➕ Добавить"
+        else:
+            text = "⚒ Выберите консультацию для редактирования:*\n\n"
+
+            for con in paid_consultations:
+                kb.row(
+                    InlineKeyboardButton(
+                        f"💬 {con.name}",
+                        callback_data=f"admin_service_{con.id}"
+                    )
+                )
+
+        kb.add(
+            InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
+            InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
+        )
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
+        )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("create_service"))
+async def admin_service_panel(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    try:
+        create_service_data[user_id] = {}
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text="✏️ Введите название услуги:"
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Произошла неизвестная ошибка при создании у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
+        )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_"))
+async def admin_service_panel(call: CallbackQuery):
+    service_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    try:
+        service = await ServiceRepository.get_service_by_id(service_id)
+
+        text = f"""
+📌 **{service.name}**
+
+💰 Цена: {service.price} ₽
+
+Выберите действие:
+        """
+
+        kb = InlineKeyboardMarkup()
+        kb.row(
+            InlineKeyboardButton("✏️ Редактировать", callback_data=f"admin_service_edit_{service.id}"),
+            InlineKeyboardButton("🗑️ Удалить", callback_data=f"admin_service_delete_{service.id}")
+        )
+        kb.row(
+            InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
+        )
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id} записи SERV_ID {service_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная оишбка",
+        )
+
+@bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
+async def confirm_create_service(call: CallbackQuery):
+    user_id = call.from_user.id
+    data = create_service_data.get(user_id)
+
+    if not data:
+        await bot.send_message(chat_id=user_id, text="❌ Данные не найдены. Начните заново.")
+        return
+
+    await ServiceRepository.create_service(
+        name=data["name"],
+        price=data["price"]
+    )
+
+    del create_service_data[user_id]
+
+    await bot.answer_callback_query(call.id, text="✅ Услуга создана!")
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
@@ -260,10 +436,10 @@ async def recording_consultation(call: CallbackQuery):
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная оишбка при записи у пользователя ID {user_id}, ошибка: {str(e)}")
+        logger.error(f"Произошла неизвестная ошибка при записи у пользователя ID {user_id}, ошибка: {str(e)}")
         await bot.send_message(
             chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+            text="❌ Произошла неизвестная ошибка",
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "register")
@@ -364,10 +540,10 @@ async def view_profile(call: CallbackQuery):
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная оишбка при записи у пользователя ID {user_id}, ошибка: {str(e)}")
+        logger.error(f"Произошла неизвестная ошибка при получении профиля у пользователя ID {user_id}, ошибка: {str(e)}")
         await bot.send_message(
             chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+            text="❌ Произошла неизвестная ошибка",
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "my_consultations")
@@ -414,12 +590,88 @@ async def view_my_consultation(call: CallbackQuery):
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная оишбка при записи у пользователя ID {user_id}, ошибка: {str(e)}")
+        logger.error(f"Произошла неизвестная ошибка при получение записей у пользователя ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная ошибка",
+        )
+
+@bot.callback_query_handler(func=lambda call: call.data == "book")
+async def view_paid_consultation(call: CallbackQuery):
+    user_id = call.from_user.id
+    user = await TelegramBotRepository.get_user(user_id)
+
+    try:
+        logger.info(f"Получение платных консультаций, пользователь TG_ID {user_id}")
+
+        kb = InlineKeyboardMarkup()
+        paid_consultations = await ServiceRepository.get_services_list()
+
+        if not paid_consultations:
+            text = "😕 Платных консультаций пока нет."
+            kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
+
+        else:
+            text = "💳 **Выберите услугу:**\n\n"
+
+            for con in paid_consultations:
+                kb.row(
+                    InlineKeyboardButton(
+                        f"💬 {con.name}",
+                        callback_data=f"consult_{con.id}"
+                    )
+                )
+
+        kb.row(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
+
+        await bot.edit_message_text(
+            text=text,
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(f"Произошла неизвестная оишбка при просмотре консультаций ID {user_id}, ошибка: {str(e)}")
         await bot.send_message(
             chat_id=call.message.chat.id,
             text="❌ Произошла неизвестная оишбка",
         )
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("service_"))
+async def service_card(call: CallbackQuery):
+    service_id = int(call.data.split("_")[1])
+    user_id = call.from_user.id
+
+    try:
+        logger.info(f"Пользовтель TG_ID {user_id} просматривает платную консультацию с ID {service_id}")
+        service = await ServiceRepository.get_service_by_id(service_id)
+
+        text = f"""
+📌 **{service.name}**
+
+💰 Цена: {service.price} ₽
+
+Нажмите «Оплатить», чтобы перейти к оплате.
+        """
+
+        kb = InlineKeyboardMarkup()
+        kb.row(InlineKeyboardButton(f"💳 Оплатить {service.price} ₽", url="/"))
+        kb.row(InlineKeyboardButton("🔙 Назад", callback_data="book"))
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(f"Произошла неизвестная ошибка при просмотре консультации с SERV_ID {service_id}, TG_ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная ошибка",
+        )
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_start")
 async def back_to_start(call: CallbackQuery):
@@ -427,7 +679,47 @@ async def back_to_start(call: CallbackQuery):
     user = await TelegramBotRepository.get_user(user_id)
 
     await show_start_menu(user, call.message.chat.id, call.message.message_id)
+
+
 # logic text
+@bot.message_handler(func=lambda message: message.from_user.id in create_service_data)
+async def handle_create_service_text(message):
+    user_id = message.from_user.id
+    data = create_service_data[user_id]
+
+    step = data.get("step", "name")
+
+    if step == "name":
+        data["name"] = message.text.strip()
+        data["step"] = "price"
+        await bot.send_message(
+            chat_id=user_id,
+            text="💰 Введите цену услуги (в рублях. Пример: 3000):"
+        )
+
+    elif step == "price":
+        try:
+            price = float(message.text.strip())
+            data["price"] = price
+            data["step"] = "duration"
+            await bot.send_message(
+                chat_id=user_id,
+                text="⏱️ Введите длительность услуги (в минутах):\n\nПример: 60"
+            )
+        except ValueError:
+            await bot.send_message(
+                chat_id=user_id,
+                text="❌ Неверный формат. Введите число, например: 3000"
+            )
+
+    elif step == "description":
+        desc = message.text.strip()
+        data["description"] = None if desc == "-" else desc
+        data["step"] = "confirm"
+
+        # Показываем подтверждение
+        await show_create_service_confirm(user_id)
+
 @bot.message_handler(func=lambda message: True)
 async def handle_text(message):
     user_id = message.from_user.id

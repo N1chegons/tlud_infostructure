@@ -5,7 +5,7 @@ from sqlalchemy import insert, select, update
 
 from src.db import async_session
 from src.logger_config import setup_logger
-from src.telegram_bot.models import User, Consultation, ConsultationType
+from src.telegram_bot.models import User, Consultation, ConsultationType, Service
 
 logger = setup_logger('repository', 'telegram', 'repository.log')
 
@@ -60,6 +60,8 @@ class ConsultationRepository:
     @classmethod
     async def get_consultation_list(cls):
         async with async_session() as session:
+            logger.debug(f"Получение списка консультации")
+
             query = select(
                 User.id,
                 User.username,
@@ -126,6 +128,39 @@ class ConsultationRepository:
             await session.commit()
 
             logger.debug(f"Пользователь успешно записался")
+
+class ServiceRepository:
+    @classmethod
+    async def get_services_list(cls):
+        async with async_session() as session:
+            logger.debug("Получение списка платных консультации")
+            query = select(Service).order_by(Service.price.asc())
+
+            result = await session.execute(query)
+            services = result.all()
+
+            return services
+
+    @classmethod
+    async def get_service_by_id(cls, service_id: int):
+        async with async_session() as session:
+            logger.debug(f"Получение конкретной платной консультации, входные данные ID {service_id}")
+            query = select(Service).filter_by(is_active=True).order_by(Service.price.asc())
+
+            result = await session.execute(query)
+            service = result.scalar_one_or_none()
+
+            return service
+
+    @classmethod
+    async def create_service(cls, name: str,  price: int):
+        async with async_session() as session:
+            logger.debug(f"Создание новой платной консультации")
+            stmt = insert(Service).values(name=name, price=price)
+
+            await session.execute(stmt)
+            await session.commit()
+
 
 class AdminRepository:
     ADMIN_IDS=[677239271, 8177043133]
