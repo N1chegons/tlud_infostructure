@@ -136,7 +136,7 @@ async def show_create_service_confirm(user_id: int):
     kb = InlineKeyboardMarkup()
     kb.row(
         InlineKeyboardButton("✅ Да", callback_data="confirm_create_service"),
-        InlineKeyboardButton("❌ Нет", callback_data="admin_back")
+        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
     )
 
     await bot.send_message(
@@ -331,7 +331,7 @@ async def admin_service_card(call: CallbackQuery):
     user_id = call.from_user.id
 
     try:
-        logger.info(f"Администратор TG_ID {user_id} просматривает карточки консульатции с SERV_ID {service_id}")
+        logger.info(f"Администратор TG_ID {user_id} просматривает карточку консультации с SERV_ID {service_id}")
 
         service = await ServiceRepository.get_service_by_id(service_id)
 
@@ -352,16 +352,19 @@ async def admin_service_card(call: CallbackQuery):
             InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
         )
 
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
-        )
+        # 👇 ПРОВЕРЯЕМ, ИЗМЕНИЛСЯ ЛИ ТЕКСТ
+        if call.message.text != text:
+            await bot.edit_message_text(
+                chat_id=user_id,
+                message_id=call.message.message_id,
+                text=text,
+                reply_markup=kb
+            )
+        else:
+            await bot.answer_callback_query(call.id, text="✅ Уже здесь", show_alert=False)
 
     except Exception as e:
-        logger.error(
-            f"Произошла неизвестная ошибка при просмотре платной консультации у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+        logger.error(f"Ошибка при просмотре: {e}")
         await bot.answer_callback_query(
             call.id,
             text="❌ Произошла ошибка",
@@ -378,7 +381,7 @@ async def admin_service_delete_confirm(call: CallbackQuery):
 
         await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
 
-        await admin_back(call)
+        await admin_paid_consultations_settings(call)
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
