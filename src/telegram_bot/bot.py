@@ -148,14 +148,15 @@ async def show_create_service_confirm(user_id: int):
 async def show_delete_service_confirm(user_id: int, mess_id: int, service_id: int, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.row(
-        InlineKeyboardButton("✅ Даas", callback_data=f"admin_service_confirm_delete_{service_id}"),
-        InlineKeyboardButton("❌ Нетas", callback_data="admin_paid_consultations_settings")
+        InlineKeyboardButton("✅ Да", callback_data=f"admin_service_confirm_delete_{service_id}"),
+        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
     )
 
-    await bot.send_message(
-        chat_id=user_id,
+    await bot.edit_message_text(
         text=text,
         reply_markup=keyboard,
+        chat_id=user_id,
+        message_id=mess_id,
     )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
@@ -385,50 +386,11 @@ async def admin_service_card(call: CallbackQuery):
 async def admin_service_delete_confirm(call: CallbackQuery):
     service_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
-    text = "⚠️ Вы уверены, что хотите удалить эту консультацию?\n\nЭто действие необратимо."
-
-    await show_delete_service_confirm(call.message.chat.id, call.message.message.id, service_id, text)
-
-@bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
-async def confirm_create_service(call: CallbackQuery):
-    user_id = call.from_user.id
-    data = create_service_data.get(user_id)
-
-    try:
-        if not data:
-            await bot.send_message(chat_id=user_id, text="❌ Данные не найдены. Начните заново.")
-            return
-
-        await ServiceRepository.create_service(
-            name=data["name"],
-            price=data["price"]
-        )
-
-        del create_service_data[user_id]
-
-        await admin_paid_consultations_settings(call)
-        await bot.answer_callback_query(call.id, text="✅ Консультация создана!")
-
-        logger.info(f"Администратор TG_ID {user_id} успешно создал новую консультацию")
-
-    except Exception as e:
-        logger.error(
-            f"Произошла неизвестная ошибка при создании новой консультации у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_confirm_delete_"))
-async def admin_service_confirm_delete(call: CallbackQuery):
-    service_id = int(call.data.split("_")[-1])
-    user_id = call.from_user.id
 
     try:
         await ServiceRepository.delete_service(service_id)
 
-        await admin_paid_consultations_settings(call)
+        await admin_back(call)
         await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
 
     except Exception as e:
