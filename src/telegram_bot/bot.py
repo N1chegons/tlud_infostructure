@@ -357,7 +357,7 @@ async def admin_service_panel(call: CallbackQuery):
 
     except Exception as e:
         logger.error(
-            f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id} записи SERV_ID {service_id}, ошибка: {str(e)}")
+            f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
         await bot.send_message(
             chat_id=call.message.chat.id,
             text="❌ Произошла неизвестная оишбка",
