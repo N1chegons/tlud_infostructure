@@ -369,27 +369,22 @@ async def admin_service_card(call: CallbackQuery):
         )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_delete_"))
-async def admin_service_delete(call: CallbackQuery):
+async def admin_service_delete_confirm(call: CallbackQuery):
     service_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
 
-    try:
-        logger.info(f"Администратор TG_ID {user_id} удалил запись с SERV_ID {service_id}")
+    kb = InlineKeyboardMarkup()
+    kb.row(
+        InlineKeyboardButton("✅ Да, удалить", callback_data=f"admin_service_confirm_delete_{service_id}"),
+        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
+    )
 
-        await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
-        await admin_paid_consultations_settings(call)
-
-        await ServiceRepository.delete_service(service_id)
-
-    except Exception as e:
-        logger.error(
-            f"Произошла неизвестная ошибка при удалении у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text="⚠️ **Вы уверены, что хотите удалить эту услугу?**\n\nЭто действие необратимо.",
+        reply_markup=kb
+    )
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
 async def confirm_create_service(call: CallbackQuery):
@@ -421,6 +416,22 @@ async def confirm_create_service(call: CallbackQuery):
             text="❌ Произошла ошибка",
             show_alert=True
         )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_confirm_delete_"))
+async def admin_service_confirm_delete(call: CallbackQuery):
+    service_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    try:
+        await ServiceRepository.delete_service(service_id)
+
+        await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
+
+        await admin_paid_consultations_settings(call)
+
+    except Exception as e:
+        logger.error(f"Ошибка при удалении: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
