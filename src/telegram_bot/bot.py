@@ -329,7 +329,7 @@ async def admin_service_panel(call: CallbackQuery):
     user_id = call.from_user.id
 
     try:
-        service = await ServiceRepository.get_service_by_id()
+        service = await ServiceRepository.get_service_by_id(service_id)
 
         text = f"""
 📌 **{service.name}**
