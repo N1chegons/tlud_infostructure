@@ -419,6 +419,37 @@ async def admin_delete_service_confirm(call: CallbackQuery):
         logger.error(f"Ошибка при удалении: {e}")
         await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
+@bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
+async def confirm_create_service(call: CallbackQuery):
+    user_id = call.from_user.id
+    data = create_service_data.get(user_id)
+
+    try:
+        if not data:
+            await bot.send_message(chat_id=user_id, text="❌ Данные не найдены. Начните заново.")
+            return
+
+        await ServiceRepository.create_service(
+            name=data["name"],
+            price=data["price"]
+        )
+
+        del create_service_data[user_id]
+
+        await bot.answer_callback_query(call.id, text="✅ Консультация создана!")
+
+        await admin_paid_consultations_settings(call)
+
+        logger.info(f"Администратор TG_ID {user_id} успешно создал новую консультацию")
+
+    except Exception as e:
+        logger.error(f"Ошибка при создании: {e}")
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
     user_id = call.from_user.id
