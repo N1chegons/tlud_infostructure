@@ -293,20 +293,27 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
     try:
         kb = InlineKeyboardMarkup()
 
-        paid_consultations = await ServiceRepository.get_services_list()
+        paid_consultations = await ServiceRepository.get_services_list_by_admin()
 
         if not paid_consultations:
-            text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на - ➕ Добавить"
+            text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на ➕ Добавить"
         else:
-            text = "⚒ Выберите консультацию для редактирования:\n\n"
+            text = "📋 **Список консультаций:**\n\n"
+            for idx, con in enumerate(paid_consultations, 1):
+                text += f"{idx}. {con.name} — {con.price} ₽\n"
 
-            for con in paid_consultations:
-                kb.row(
-                    InlineKeyboardButton(
-                        f"💬 {con.name}",
-                        callback_data=f"admin_service_{con.id}"
-                    )
-                )
+        # if not paid_consultations:
+        #     text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на - ➕ Добавить"
+        # else:
+        #     text = "⚒ Выберите консультацию для редактирования:\n\n"
+        #
+        #     for con in paid_consultations:
+        #         kb.row(
+        #             InlineKeyboardButton(
+        #                 f"💬 {con.name}",
+        #                 callback_data=f"admin_service_{con.id}"
+        #             )
+        #         )
 
         kb.add(
             InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
@@ -353,93 +360,6 @@ async def create_service(call: CallbackQuery):
             text="❌ Произошла ошибка",
             show_alert=True
         )
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_"))
-async def admin_service_card(call: CallbackQuery):
-    service_id = int(call.data.split("_")[-1])
-    user_id = call.from_user.id
-
-    try:
-        logger.info(f"Администратор TG_ID {user_id} просматривает карточку консультации с SERV_ID {service_id}")
-
-        service = await ServiceRepository.get_service_by_id(service_id)
-
-        text = f"""
-📌 **{service.name}**
-
-💰 Цена: {service.price} ₽
-
-Выберите действие:
-        """
-
-        kb = InlineKeyboardMarkup()
-        kb.row(
-            InlineKeyboardButton("✏️ Редактировать", callback_data=f"admin_service_edit_{service.id}"),
-        )
-        kb.row(
-            InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
-        )
-
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
-        )
-
-    except Exception as e:
-        logger.error(f"Ошибка при просмотре: {e}")
-        await bot.answer_callback_query(
-            call.id,
-            text="❌ Произошла ошибка",
-            show_alert=True
-        )
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_edit_"))
-async def admin_service_edit_start(call: CallbackQuery):
-    service_id = int(call.data.split("_")[-1])
-    user_id = call.from_user.id
-
-    service = await ServiceRepository.get_service_by_id(service_id)
-
-    edit_service_data[user_id] = {
-        "service_id": service_id,
-        "step": "name",
-        "name": service.name,
-        "price": service.price
-    }
-
-    await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=call.message.message_id,
-        text=f"✏️ Введите новое название услуги:\n\n(текущее: {service.name})"
-    )
-
-@bot.callback_query_handler(func=lambda call: call.data == "confirm_edit_service")
-async def confirm_edit_service(call: CallbackQuery):
-    user_id = call.from_user.id
-    data = edit_service_data.get(user_id)
-
-    try:
-        if not data:
-            await bot.send_message(user_id, "❌ Данные не найдены.")
-            return
-
-        await ServiceRepository.update_service(
-            service_id=data["service_id"],
-            name=data["name"],
-            price=data["price"]
-        )
-
-        del edit_service_data[user_id]
-
-        await bot.answer_callback_query(call.id, text="✅ Консультация обновлена!")
-
-        await admin_paid_consultations_settings(call)
-
-    except Exception as e:
-        logger.error(f"Ошибка при редактировании: {e}")
-        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete_service")
 async def admin_delete_service_list(call: CallbackQuery):
@@ -782,7 +702,7 @@ async def view_paid_consultation(call: CallbackQuery):
             show_alert=True
         )
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("service_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("consult_"))
 async def service_card(call: CallbackQuery):
     service_id = int(call.data.split("_")[1])
     user_id = call.from_user.id
@@ -792,7 +712,7 @@ async def service_card(call: CallbackQuery):
         service = await ServiceRepository.get_service_by_id(service_id)
 
         text = f"""
-📌 **{service.name}**
+📌 {service.name}
 
 💰 Цена: {service.price} ₽
 
@@ -824,7 +744,6 @@ async def back_to_start(call: CallbackQuery):
     user = await TelegramBotRepository.get_user(user_id)
 
     await show_start_menu(user, call.message.chat.id, call.message.message_id)
-
 
 # logic text
 @bot.message_handler(func=lambda message: message.from_user.id in create_service_data)

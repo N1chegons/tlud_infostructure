@@ -131,6 +131,17 @@ class ConsultationRepository:
 
 class ServiceRepository:
     @classmethod
+    async def get_services_list_by_admin(cls):
+        async with async_session() as session:
+            logger.debug("Получение списка платных консультации")
+            query = select(Service).order_by(Service.created_at)
+
+            result = await session.execute(query)
+            services = result.scalars().all()
+
+            return services
+
+    @classmethod
     async def get_services_list(cls):
         async with async_session() as session:
             logger.debug("Получение списка платных консультации")
