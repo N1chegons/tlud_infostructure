@@ -282,7 +282,8 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
                         callback_data=f"admin_service_{con.id}"
                     )
                 )
-                kb.row(InlineKeyboardButton("🗑️ Удалить консультацию", callback_data="admin_delete_service"))
+
+            kb.row(InlineKeyboardButton("🗑️ Удалить консультацию", callback_data="admin_delete_service"))
 
         kb.add(
             InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
@@ -377,11 +378,11 @@ async def admin_delete_service_list(call: CallbackQuery):
         await bot.answer_callback_query(call.id, text="😕 Нет услуг для удаления", show_alert=True)
         return
 
-    text = "🗑️ Выберите услугу для удаления:\n\n"
+    text = "🗑️ Выберите консультацию для удаления:\n\n"
     for idx, service in enumerate(services, 1):
         text += f"{idx}. {service.name} — {service.price} ₽\n"
 
-    text += "\nВыберите номер услуги, чтобы удалить её:"
+    text += "\nВыберите номер конусльтации, чтобы удалить её:"
 
     kb = InlineKeyboardMarkup()
     row = []
@@ -412,7 +413,7 @@ async def admin_delete_service_confirm(call: CallbackQuery):
 
         await bot.answer_callback_query(call.id, text="✅ Услуга удалена!")
 
-        await admin_delete_service_list(call)
+        await admin_paid_consultations_settings(call)
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
