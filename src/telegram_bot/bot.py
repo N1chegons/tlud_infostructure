@@ -352,16 +352,12 @@ async def admin_service_card(call: CallbackQuery):
             InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
         )
 
-        # 👇 ПРОВЕРЯЕМ, ИЗМЕНИЛСЯ ЛИ ТЕКСТ
-        if call.message.text != text:
-            await bot.edit_message_text(
-                chat_id=user_id,
-                message_id=call.message.message_id,
-                text=text,
-                reply_markup=kb
-            )
-        else:
-            await bot.answer_callback_query(call.id, text="✅ Уже здесь", show_alert=False)
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
 
     except Exception as e:
         logger.error(f"Ошибка при просмотре: {e}")
@@ -380,8 +376,6 @@ async def admin_service_delete_confirm(call: CallbackQuery):
         await ServiceRepository.delete_service(service_id)
 
         await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
-
-        await admin_paid_consultations_settings(call)
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
