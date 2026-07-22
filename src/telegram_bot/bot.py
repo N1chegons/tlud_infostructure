@@ -701,24 +701,16 @@ async def handle_create_service_text(message):
         try:
             price = float(message.text.strip())
             data["price"] = price
-            data["step"] = "duration"
-            await bot.send_message(
-                chat_id=user_id,
-                text="⏱️ Введите длительность услуги (в минутах):\n\nПример: 60"
-            )
+
+            await show_create_service_confirm(user_id)
+
         except ValueError:
             await bot.send_message(
                 chat_id=user_id,
                 text="❌ Неверный формат. Введите число, например: 3000"
             )
 
-    elif step == "description":
-        desc = message.text.strip()
-        data["description"] = None if desc == "-" else desc
-        data["step"] = "confirm"
 
-        # Показываем подтверждение
-        await show_create_service_confirm(user_id)
 
 @bot.message_handler(func=lambda message: True)
 async def handle_text(message):
