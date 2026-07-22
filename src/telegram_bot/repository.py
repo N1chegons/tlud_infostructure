@@ -162,6 +162,15 @@ class ServiceRepository:
             await session.commit()
 
     @classmethod
+    async def update_service(cls, service_id: int, name: str, price: int):
+        async with async_session() as session:
+            logger.debug(f"Обновление платной консультации")
+            stmt = update(Service).filter_by(id=service_id).values(name=name, price=price)
+
+            await session.execute(stmt)
+            await session.commit()
+
+    @classmethod
     async def delete_service(cls, service_id: int):
         async with async_session() as session:
             logger.debug(f"Удаление платной консультации, входные данные: SERV_ID {service_id}")

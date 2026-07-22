@@ -120,6 +120,7 @@ async def admin(message):
 
 # admin logic
 create_service_data = {}
+edit_service_data = {}
 
 async def show_create_service_confirm(user_id: int):
     data = create_service_data[user_id]
@@ -136,6 +137,30 @@ async def show_create_service_confirm(user_id: int):
     kb = InlineKeyboardMarkup()
     kb.row(
         InlineKeyboardButton("✅ Да", callback_data="confirm_create_service"),
+        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
+    )
+
+    await bot.send_message(
+        chat_id=user_id,
+        text=text,
+        reply_markup=kb
+    )
+
+async def show_edit_service_confirm(user_id: int):
+    data = edit_service_data[user_id]
+
+    text = f"""
+📋 Проверьте новые данные консультации:
+
+📌 Название: {data['name']}
+💰 Цена: {data['price']} ₽
+
+Всё верно?
+    """
+
+    kb = InlineKeyboardMarkup()
+    kb.row(
+        InlineKeyboardButton("✅ Да", callback_data="confirm_edit_service"),
         InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
     )
 
@@ -369,6 +394,52 @@ async def admin_service_card(call: CallbackQuery):
             text="❌ Произошла ошибка",
             show_alert=True
         )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_edit_"))
+async def admin_service_edit_start(call: CallbackQuery):
+    service_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    service = await ServiceRepository.get_service_by_id(service_id)
+
+    edit_service_data[user_id] = {
+        "service_id": service_id,
+        "step": "name",
+        "name": service.name,
+        "price": service.price
+    }
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=f"✏️ Введите новое название услуги:\n\n(текущее: {service.name})"
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == "confirm_edit_service")
+async def confirm_edit_service(call: CallbackQuery):
+    user_id = call.from_user.id
+    data = edit_service_data.get(user_id)
+
+    try:
+        if not data:
+            await bot.send_message(user_id, "❌ Данные не найдены.")
+            return
+
+        await ServiceRepository.update_service(
+            service_id=data["service_id"],
+            name=data["name"],
+            price=data["price"]
+        )
+
+        del edit_service_data[user_id]
+
+        await bot.answer_callback_query(call.id, text="✅ Консультация обновлена!")
+
+        await admin_paid_consultations_settings(call)
+
+    except Exception as e:
+        logger.error(f"Ошибка при редактировании: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete_service")
 async def admin_delete_service_list(call: CallbackQuery):
@@ -777,6 +848,36 @@ async def handle_create_service_text(message):
             data["price"] = price
 
             await show_create_service_confirm(user_id)
+
+        except ValueError:
+            await bot.send_message(
+                chat_id=user_id,
+                text="❌ Неверный формат. Введите число, например: 3000"
+            )
+
+@bot.message_handler(func=lambda message: message.from_user.id in edit_service_data)
+async def handle_edit_service_text(message):
+    user_id = message.from_user.id
+    data = edit_service_data[user_id]
+
+    step = data.get("step", "name")
+
+    if step == "name":
+        data["name"] = message.text.strip()
+        data["step"] = "price"
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"💰 Введите новую цену консультации:\n\n(текущая: {data['price']} ₽)"
+        )
+
+    elif step == "price":
+        try:
+            price = float(message.text.strip())
+            data["price"] = price
+            data["step"] = "confirm"
+
+            await show_edit_service_confirm(user_id)
 
         except ValueError:
             await bot.send_message(
