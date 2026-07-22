@@ -271,7 +271,7 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
         paid_consultations = await ServiceRepository.get_services_list()
 
         if not paid_consultations:
-            text = "😕 Платных консультаций пока нет.\n\nВы можете ее доабвить, нажмите на - ➕ Добавить"
+            text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на - ➕ Добавить"
         else:
             text = "⚒ Выберите консультацию для редактирования:\n\n"
 
@@ -317,7 +317,7 @@ async def create_service(call: CallbackQuery):
         await bot.edit_message_text(
             chat_id=user_id,
             message_id=call.message.message_id,
-            text="✏️ Введите название услуги:"
+            text="✏️ Введите название консультации:"
         )
 
     except Exception as e:
@@ -462,12 +462,10 @@ async def admin_back(call: CallbackQuery):
         text=(
             "🔐 **Админ-панель**\n\n"
             "Добро пожаловать в панель управления ботом!\n"
-            # "Здесь вы можете управлять записями на консультацию, "
-            # "смотреть статистику и отслеживать активность клиентов.\n\n"
+            "Здесь вы можете управлять записями на консультацию\n\n"
             "📌 **Доступные действия:**\n"
-            "• 📋 Просмотр всех записей\n\n"
-            # "• 📊 Статистика по консультациям\n"
-            # "• ⚙️ Управление настройками\n\n"
+            "• 📋 Просмотр всех записей\n"
+            "• ⚙️ Управление консультациями\n\n"
             "Выберите действие ниже 👇"
         ),
         reply_markup=get_admins_keyboard()
@@ -602,7 +600,7 @@ async def view_profile(call: CallbackQuery):
 
         await bot.edit_message_text(
             text=(
-                f"👤 **Мой профиль**\n\n"
+                f"👤 Мой профиль\n\n"
                 f"🪪 Имя: {user.username}\n"
                 f"📱 Телефон: {user.phone_number}\n"
                 f"📅 Дата рождения: {user.date_of_birth}"
@@ -645,7 +643,7 @@ async def view_my_consultation(call: CallbackQuery):
         if not consultations:
             text = "📭 У вас пока нет записей."
         else:
-            text = "📋 **Мои записи:**\n\n"
+            text = "📋 Мои записи:\n\n"
             for idx, row in enumerate(consultations, 1):
                 viewed_emoji = "⏳ - В процессе..." if not row.is_viewed else "✅ - Пройдена"
                 created_date = row.created_at.strftime("%d.%m.%Y") if row.created_at else "—"
@@ -684,10 +682,9 @@ async def view_paid_consultation(call: CallbackQuery):
 
         if not paid_consultations:
             text = "😕 Платных консультаций пока нет."
-            kb.add(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
 
         else:
-            text = "💳 **Выберите услугу:**\n\n"
+            text = "💳 Выберите консультацию:\n\n"
 
             for con in paid_consultations:
                 kb.row(
