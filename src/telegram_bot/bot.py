@@ -349,6 +349,7 @@ async def admin_service_card(call: CallbackQuery):
         kb = InlineKeyboardMarkup()
         kb.row(
             InlineKeyboardButton("✏️ Редактировать", callback_data=f"admin_service_edit_{service.id}"),
+            InlineKeyboardButton("🗑️ Удалить", callback_data=f"admin_service_delete_{service.id}")
         )
         kb.row(
             InlineKeyboardButton("🔙 Назад", callback_data="admin_paid_consultations_settings")
@@ -439,6 +440,21 @@ async def admin_delete_service_list(call: CallbackQuery):
 
     await safe_edit_message(user_id, call.message.message_id, text, kb)
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_delete_"))
+async def admin_service_delete(call: CallbackQuery):
+    service_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    try:
+        await ServiceRepository.delete_service(service_id)
+
+        await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
+
+        await admin_paid_consultations_settings(call)
+
+    except Exception as e:
+        logger.error(f"Ошибка при удалении: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_delete_service_"))
 async def admin_delete_service_confirm(call: CallbackQuery):
