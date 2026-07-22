@@ -145,20 +145,6 @@ async def show_create_service_confirm(user_id: int):
         reply_markup=kb
     )
 
-async def show_delete_service_confirm(user_id: int, mess_id: int, service_id: int, text):
-    keyboard = InlineKeyboardMarkup()
-    keyboard.row(
-        InlineKeyboardButton("✅ Да", callback_data=f"admin_service_confirm_delete_{service_id}"),
-        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
-    )
-
-    await bot.edit_message_text(
-        text=text,
-        reply_markup=keyboard,
-        chat_id=user_id,
-        message_id=mess_id,
-    )
-
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
 async def admin_view_consultations(call: CallbackQuery):
     user_id = call.from_user.id
@@ -390,8 +376,9 @@ async def admin_service_delete_confirm(call: CallbackQuery):
     try:
         await ServiceRepository.delete_service(service_id)
 
-        await admin_back(call)
         await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
+
+        await admin_paid_consultations_settings(call)
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
