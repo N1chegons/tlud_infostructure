@@ -184,9 +184,10 @@ async def admin_view_consultations(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed")
@@ -233,9 +234,10 @@ async def admin_mark_viewed(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная ошибка при помечании у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_"))
@@ -254,7 +256,7 @@ async def admin_mark_single(call: CallbackQuery):
         logger.error(f"Произошла неизвестная ошибка при помечани одной записи у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
         await bot.send_message(
             chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+            text="❌ Произошла неизвестная ошибка",
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_paid_consultations_settings")
@@ -299,7 +301,7 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
             f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
         await bot.send_message(
             chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+            text="❌ Произошла неизвестная ошибка",
         )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("create_service"))
@@ -318,9 +320,10 @@ async def admin_service_panel(call: CallbackQuery):
     except Exception as e:
         logger.error(
             f"Произошла неизвестная ошибка при создании у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_"))
@@ -358,9 +361,10 @@ async def admin_service_panel(call: CallbackQuery):
     except Exception as e:
         logger.error(
             f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
@@ -368,19 +372,47 @@ async def confirm_create_service(call: CallbackQuery):
     user_id = call.from_user.id
     data = create_service_data.get(user_id)
 
-    if not data:
-        await bot.send_message(chat_id=user_id, text="❌ Данные не найдены. Начните заново.")
-        return
+    try:
+        if not data:
+            await bot.send_message(chat_id=user_id, text="❌ Данные не найдены. Начните заново.")
+            return
 
-    await ServiceRepository.create_service(
-        name=data["name"],
-        price=data["price"]
-    )
+        await ServiceRepository.create_service(
+            name=data["name"],
+            price=data["price"]
+        )
 
-    del create_service_data[user_id]
+        del create_service_data[user_id]
 
-    await admin_paid_consultations_settings(call)
-    await bot.answer_callback_query(call.id, text="✅ Услуга создана!")
+        await admin_paid_consultations_settings(call)
+        await bot.answer_callback_query(call.id, text="✅ Услуга создана!")
+
+        logger.info(f"Администратор TG_ID {user_id} успешно создал новую консультацию")
+
+    except Exception as e:
+        logger.error(
+            f"Произошла неизвестная ошибка при создании новой консультации у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_service_delete_"))
+async def admin_service_panel(call: CallbackQuery):
+    service_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    try:
+        pass
+    except:
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
@@ -438,9 +470,10 @@ async def recording_consultation(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная ошибка при записи у пользователя ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная ошибка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "register")
@@ -487,9 +520,10 @@ async def confirm(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная оишбка при регистрации у пользователя ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel")
@@ -542,9 +576,10 @@ async def view_profile(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная ошибка при получении профиля у пользователя ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная ошибка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "my_consultations")
@@ -592,9 +627,10 @@ async def view_my_consultation(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная ошибка при получение записей у пользователя ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная ошибка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "book")
@@ -634,9 +670,10 @@ async def view_paid_consultation(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная оишбка при просмотре консультаций ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная оишбка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("service_"))
@@ -669,9 +706,10 @@ async def service_card(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная ошибка при просмотре консультации с SERV_ID {service_id}, TG_ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная ошибка",
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
         )
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_start")
@@ -710,8 +748,6 @@ async def handle_create_service_text(message):
                 chat_id=user_id,
                 text="❌ Неверный формат. Введите число, например: 3000"
             )
-
-
 
 @bot.message_handler(func=lambda message: True)
 async def handle_text(message):

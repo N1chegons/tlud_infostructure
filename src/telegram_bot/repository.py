@@ -1,7 +1,7 @@
 from datetime import datetime
 import re
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, select, update, delete
 
 from src.db import async_session
 from src.logger_config import setup_logger
@@ -161,6 +161,14 @@ class ServiceRepository:
             await session.execute(stmt)
             await session.commit()
 
+    @classmethod
+    async def delete_service(cls, service_id: int):
+        async with async_session() as session:
+            logger.debug(f"Удаление платной консультации, входные данные: SERV_ID {service_id}")
+            stmt = delete(Service).filter_by(id=service_id)
+
+            await session.execute(stmt)
+            await session.commit()
 
 class AdminRepository:
     ADMIN_IDS=[677239271, 8177043133]
