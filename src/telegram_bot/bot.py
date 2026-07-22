@@ -148,15 +148,15 @@ async def show_create_service_confirm(user_id: int):
 async def show_delete_service_confirm(user_id: int, service_id: int, text):
     keyboard = InlineKeyboardMarkup()
     keyboard.row(
-        InlineKeyboardButton("✅ Да", callback_data=f"admin_service_confirm_delete_{service_id}"),
-        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
+        InlineKeyboardButton("✅ Даas", callback_data=f"admin_service_confirm_delete_{service_id}"),
+        InlineKeyboardButton("❌ Нетas", callback_data="admin_paid_consultations_settings")
     )
 
     await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=user_id,
         text=text,
-        reply_markup=keyboard
+        reply_markup=keyboard,
+        chat_id=user_id,
+        message_id = user_id,
     )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
