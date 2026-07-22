@@ -136,7 +136,7 @@ async def show_create_service_confirm(user_id: int):
     kb = InlineKeyboardMarkup()
     kb.row(
         InlineKeyboardButton("✅ Да", callback_data="confirm_create_service"),
-        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
+        InlineKeyboardButton("❌ Нет", callback_data="admin_back")
     )
 
     await bot.send_message(
@@ -337,7 +337,7 @@ async def admin_service_card(call: CallbackQuery):
 
         text = f"""
 📌 **{service.name}**
-6hg
+
 💰 Цена: {service.price} ₽
 
 Выберите действие:
@@ -378,7 +378,7 @@ async def admin_service_delete_confirm(call: CallbackQuery):
 
         await bot.answer_callback_query(call.id, text="✅ Консультация удалена!")
 
-        await admin_paid_consultations_settings(call)
+        await admin_back(call)
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
