@@ -108,7 +108,7 @@ async def admin(message):
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "🔐 **Админ-панель**\n\n"
+                "🔐 Админ-панель\n\n"
                 "Добро пожаловать в панель управления ботом!\n"
                 "Здесь вы можете управлять записями на консультацию\n\n"
                 "📌 **Доступные действия:**\n"
@@ -1012,14 +1012,39 @@ async def handle_admin_voice_send(message):
     await bot.send_voice(
         chat_id=consultation.user.telegram_id,
         voice=downloaded_file,
-        caption="🎤 Ваша бесплатная консультация от Людмилы"
+        caption="🎤 Ваша бесплатная консультация."
     )
 
     await ConsultationRepository.mark_as_viewed(consultation_id)
 
     del admin_voice_data[user_id]
 
+    await asyncio.sleep(0.5)
+
+    kb = InlineKeyboardMarkup()
+    kb.row(InlineKeyboardButton("📋 Посмотреть другие консультации", callback_data="book"))
+
+    await bot.send_message(
+        chat_id=consultation.user.telegram_id,
+        text="✨ Также вы можете посмотреть другие доступные консультации:",
+        reply_markup=kb
+    )
+
     await bot.send_message(user_id, "✅ Голосовое отправлено клиенту!")
+
+    await bot.send_message(
+            chat_id=user_id,
+            text=(
+                "🔐 Админ-панель\n\n"
+                "Добро пожаловать в панель управления ботом!\n"
+                "Здесь вы можете управлять записями на консультацию\n\n"
+                "📌 **Доступные действия:**\n"
+                "• 📋 Просмотр всех записей\n"
+                "• ⚙️ Управление консультациями\n\n"
+                "Выберите действие ниже 👇"
+            ),
+            reply_markup=get_admins_keyboard()
+        )
 
 # connections
 async def handle_webhook(request):
