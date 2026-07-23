@@ -35,7 +35,6 @@ class Consultation(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     service_id: Mapped[int] = mapped_column(ForeignKey("services.id"), nullable=True)
     payment_id: Mapped[int] = mapped_column(ForeignKey("payments.id"), nullable=True)
-    status: Mapped[str] = mapped_column(default="pending")
 
     service_name: Mapped[str] = mapped_column(nullable=True)
     type: Mapped[ConsultationType] = mapped_column(default=ConsultationType.FREE)
