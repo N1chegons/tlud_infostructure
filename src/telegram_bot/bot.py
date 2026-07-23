@@ -1,13 +1,14 @@
 import asyncio
+import os
 import telebot
 from aiohttp import web
 
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputFile
 from telebot.async_telebot import AsyncTeleBot
 
 from src.config import settings
 from src.logger_config import setup_logger
-from src.telegram_bot.meneger_sending import notify_admins
+from src.telegram_bot.meneger_sending import notify_admins, send_notification_telegram
 from src.telegram_bot.models import User
 from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository, \
     ServiceRepository
@@ -121,6 +122,7 @@ async def admin(message):
 # admin logic
 create_service_data = {}
 edit_service_data = {}
+admin_voice_data = {}
 
 async def show_create_service_confirm(user_id: int):
     data = create_service_data[user_id]
@@ -197,8 +199,8 @@ async def admin_view_consultations(call: CallbackQuery):
             )
         kb = InlineKeyboardMarkup()
         kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"))
+        kb.row(InlineKeyboardButton("🎤 Отправить голосовое", callback_data="admin_send_voice"))
         kb.row( InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
-
 
         await bot.edit_message_text(
             chat_id=user_id,
@@ -363,6 +365,39 @@ async def create_service(call: CallbackQuery):
             show_alert=True
         )
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_send_voice")
+async def admin_send_voice_list(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    try:
+        unviewed = await ConsultationRepository.get_unviewed_consultation_list()
+
+        if not unviewed:
+            await bot.answer_callback_query(call.id, text="😕 Нет непросмотренных записей", show_alert=True)
+            return
+
+        text = "🎤 Выберите пользователя для отправки голосового ответа:\n\n"
+        kb = InlineKeyboardMarkup()
+
+        for idx, row in enumerate(unviewed, 1):
+            kb.row(InlineKeyboardButton(
+                f"{idx}. {row.username}",
+                callback_data=f"admin_send_voice_user_{row.consultation_id}"
+            ))
+
+        kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_consultations"))
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(f"Ошибка: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_delete_service")
 async def admin_delete_service_list(call: CallbackQuery):
     user_id = call.from_user.id
@@ -412,6 +447,73 @@ async def admin_delete_service_confirm(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Ошибка при удалении: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_send_voice_user_"))
+async def admin_send_voice_to_user(call: CallbackQuery, os=None):
+    consultation_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    try:
+        consultation = await ConsultationRepository.get_by_id_with_user(consultation_id)
+
+        if not consultation:
+            await bot.answer_callback_query(call.id, text="❌ Запись не найдена", show_alert=True)
+            return
+
+        kb = InlineKeyboardMarkup()
+        kb.row(
+            InlineKeyboardButton("✅ Отправить", callback_data=f"admin_voice_confirmed_{consultation_id}"),
+            InlineKeyboardButton("❌ Отменить", callback_data=f"admin_view_consultations")
+        )
+
+        await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=f"✅ Голосовое оптравляется {consultation.user.username}\n\nПодтвердите отправку:",
+        reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(f"Ошибка отправки голосового: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_voice_confirmed_"))
+async def admin_voice_confirmed(call: CallbackQuery):
+    consultation_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    try:
+        consultation = await ConsultationRepository.get_by_id_with_user(consultation_id)
+        voice_path = "path/to/consultation_voice.ogg"
+
+        if not os.path.exists(voice_path):
+            await bot.answer_callback_query(call.id, text="❌ Голосовой файл не найден", show_alert=True)
+            return
+
+        await bot.answer_callback_query(call.id, text="✅ Отправлено!")
+        await admin_send_voice_list(call)
+
+        await bot.send_voice(
+            chat_id=consultation.user.telegram_id,
+            voice=InputFile(voice_path),
+            caption="🎤 Ваша бесплатная консультация.\n\n"
+        )
+
+        await asyncio.sleep(0.5)
+
+        keyboard = InlineKeyboardMarkup()
+        keyboard.row(InlineKeyboardButton("Посмотреть", callback_data="book"))
+        await bot.send_message(
+            chat_id=consultation.user.telegram_id,
+            text=f"Посмотрите также другие консльтации:",
+            reply_markup=keyboard
+        )
+
+        await ConsultationRepository.mark_as_viewed(consultation_id)
+
+    except Exception as e:
+        logger.error(f"Ошибка подтверждения: {e}")
         await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "confirm_create_service")
@@ -888,6 +990,40 @@ async def handle_text(message):
             text=text,
             reply_markup=kb
         )
+
+@bot.message_handler(content_types=['voice'])
+async def handle_admin_voice_send(message):
+    user_id = message.from_user.id
+
+    if not await AdminRepository.is_admin(user_id):
+        await bot.send_message(user_id, "❌ Доступ ограничен")
+        return
+
+    if user_id not in admin_voice_data:
+        await bot.send_message(user_id, "❌ Сначала выберите клиента в админке.")
+        return
+
+    consultation_id = admin_voice_data[user_id]["consultation_id"]
+    consultation = await ConsultationRepository.get_by_id_with_user(consultation_id)
+
+    if not consultation:
+        await bot.send_message(user_id, "❌ Клиент не найден")
+        return
+
+    file_info = await bot.get_file(message.voice.file_id)
+    downloaded_file = await bot.download_file(file_info.file_path)
+
+    await bot.send_voice(
+        chat_id=consultation.user.telegram_id,
+        voice=downloaded_file,
+        caption="🎤 Ваша бесплатная консультация от Людмилы"
+    )
+
+    await ConsultationRepository.mark_as_viewed(consultation_id)
+
+    del admin_voice_data[user_id]
+
+    await bot.send_message(user_id, "✅ Голосовое отправлено клиенту!")
 
 # connections
 async def handle_webhook(request):

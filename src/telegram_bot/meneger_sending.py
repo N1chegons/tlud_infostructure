@@ -5,7 +5,6 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from src.telegram_bot.repository import AdminRepository
 
 
-
 async def send_notification_telegram(user_id: int, text: str):
     try:
         await bot.send_message(chat_id=user_id, text=text)

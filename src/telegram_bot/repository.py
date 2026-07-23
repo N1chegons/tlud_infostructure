@@ -2,6 +2,7 @@ from datetime import datetime
 import re
 
 from sqlalchemy import insert, select, update, delete
+from sqlalchemy.orm import joinedload
 
 from src.db import async_session
 from src.logger_config import setup_logger
@@ -109,6 +110,16 @@ class ConsultationRepository:
             rows = result.all()
 
             return rows
+
+    @classmethod
+    async def get_by_id_with_user(cls, consultation_id: int):
+        async with async_session() as session:
+            result = await session.execute(
+                select(Consultation)
+                .options(joinedload(Consultation.user))
+                .where(Consultation.id == consultation_id)
+            )
+            return result.scalar_one_or_none()
 
     @classmethod
     async def mark_as_viewed(cls, consultation_id: int):
