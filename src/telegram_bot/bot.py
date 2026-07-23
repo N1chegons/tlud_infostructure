@@ -450,7 +450,7 @@ async def admin_delete_service_confirm(call: CallbackQuery):
         await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_send_voice_user_"))
-async def admin_send_voice_to_user(call: CallbackQuery, os=None):
+async def admin_send_voice_to_user(call: CallbackQuery):
     consultation_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
 
@@ -461,21 +461,17 @@ async def admin_send_voice_to_user(call: CallbackQuery, os=None):
             await bot.answer_callback_query(call.id, text="❌ Запись не найдена", show_alert=True)
             return
 
-        kb = InlineKeyboardMarkup()
-        kb.row(
-            InlineKeyboardButton("✅ Отправить", callback_data=f"admin_voice_confirmed_{consultation_id}"),
-            InlineKeyboardButton("❌ Отменить", callback_data=f"admin_view_consultations")
+        admin_voice_data[user_id] = {"consultation_id": consultation_id}
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"🎤 Запишите голосовое сообщение для {consultation.user.username} и отправьте его сюда.\n\nОно будет отправлено клиенту."
         )
 
-        await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=call.message.message_id,
-        text=f"✅ Голосовое оптравляется {consultation.user.username}\n\nПодтвердите отправку:",
-        reply_markup=kb
-        )
+        await bot.answer_callback_query(call.id)
 
     except Exception as e:
-        logger.error(f"Ошибка отправки голосового: {e}")
+        logger.error(f"Ошибка: {e}")
         await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_voice_confirmed_"))
