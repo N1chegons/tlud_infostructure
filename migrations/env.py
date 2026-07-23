@@ -20,6 +20,7 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from src.telegram_bot.models import User
+from src.payments.models import Payment
 # target_metadata = mymodel.Base.metadata
 config.set_main_option("sqlalchemy.url", f"{settings.DB_URL}" + "?async_fallback=True")
 

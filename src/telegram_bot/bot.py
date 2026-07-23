@@ -126,9 +126,10 @@ async def show_create_service_confirm(user_id: int):
     data = create_service_data[user_id]
 
     text = f"""
-📋 **Проверьте данные новой услуги:**
+📋 Проверьте данные новой консультации:
 
 📌 Название: {data['name']}
+📝 Описание: {data.get('description', '—')}
 💰 Цена: {data['price']} ₽
 
 Всё верно?
@@ -298,9 +299,10 @@ async def admin_paid_consultations_settings(call: CallbackQuery):
         if not paid_consultations:
             text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на ➕ Добавить"
         else:
-            text = "📋 **Список консультаций:**\n\n"
+            text = "📋 Список консультаций:\n\n"
             for idx, con in enumerate(paid_consultations, 1):
-                text += f"{idx}. {con.name} — {con.price} ₽\n"
+                text += (f"{idx}. {con.name} — {con.price} ₽\n"
+                         f"{con.description}\n\n")
 
         # if not paid_consultations:
         #     text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на - ➕ Добавить"
@@ -424,7 +426,8 @@ async def confirm_create_service(call: CallbackQuery):
 
         await ServiceRepository.create_service(
             name=data["name"],
-            price=data["price"]
+            price=data["price"],
+            description=data["description"]
         )
 
         del create_service_data[user_id]
@@ -714,6 +717,8 @@ async def service_card(call: CallbackQuery):
         text = f"""
 📌 {service.name}
 
+📝 Описание: {service.description or '—'}
+
 💰 Цена: {service.price} ₽
 
 Нажмите «Оплатить», чтобы перейти к оплате.
@@ -755,6 +760,15 @@ async def handle_create_service_text(message):
 
     if step == "name":
         data["name"] = message.text.strip()
+        data["step"] = "desc"
+        await bot.send_message(
+            chat_id=user_id,
+            text="📝 Введите описание консультации (или отправьте «-», чтобы пропустить):"
+        )
+
+    elif step == "desc":
+        desc = message.text.strip()
+        data["description"] = None if desc == "-" else desc
         data["step"] = "price"
         await bot.send_message(
             chat_id=user_id,
@@ -765,7 +779,6 @@ async def handle_create_service_text(message):
         try:
             price = float(message.text.strip())
             data["price"] = price
-
             await show_create_service_confirm(user_id)
 
         except ValueError:

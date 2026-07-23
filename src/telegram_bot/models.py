@@ -33,6 +33,10 @@ class Consultation(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    service_id: Mapped[int] = mapped_column(ForeignKey("services.id"), nullable=True)
+    payment_id: Mapped[int] = mapped_column(ForeignKey("payments.id"), nullable=True)
+    status: Mapped[str] = mapped_column(default="pending")
+
     service_name: Mapped[str] = mapped_column(nullable=True)
     type: Mapped[ConsultationType] = mapped_column(default=ConsultationType.FREE)
     is_viewed: Mapped[bool] = mapped_column(default=False)
@@ -48,6 +52,7 @@ class Service(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False)
+    description: Mapped[str] = mapped_column(nullable=True)
     price: Mapped[float] = mapped_column(nullable=False)
 
     created_at: Mapped[datetime.datetime] = mapped_column(
