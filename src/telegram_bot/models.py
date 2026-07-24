@@ -39,6 +39,7 @@ class Consultation(Base):
     service_name: Mapped[str] = mapped_column(nullable=True)
     type: Mapped[ConsultationType] = mapped_column(default=ConsultationType.FREE)
     is_viewed: Mapped[bool] = mapped_column(default=False)
+    is_canceled: Mapped[bool] = mapped_column(default=False)
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         server_default=text("TIMEZONE('utc', now())")

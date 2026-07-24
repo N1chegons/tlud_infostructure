@@ -144,8 +144,8 @@ class ServiceRepository:
     @classmethod
     async def get_services_list_by_admin(cls):
         async with async_session() as session:
-            logger.debug("Получение списка платных консультации")
-            query = select(Service).order_by(Service.created_at)
+            logger.debug("Получение списка платных консультаций для администратора")
+            query = select(Service).filter_by(is_canceled=False).order_by(Service.created_at)
 
             result = await session.execute(query)
             services = result.scalars().all()
@@ -155,8 +155,8 @@ class ServiceRepository:
     @classmethod
     async def get_services_list(cls):
         async with async_session() as session:
-            logger.debug("Получение списка платных консультации")
-            query = select(Service).order_by(Service.price.asc())
+            logger.debug("Получение списка платных консультаций для пользователя")
+            query = select(Service).filter_by(is_canceled=False).order_by(Service.price.asc())
 
             result = await session.execute(query)
             services = result.scalars().all()
@@ -196,7 +196,7 @@ class ServiceRepository:
     async def delete_service(cls, service_id: int):
         async with async_session() as session:
             logger.debug(f"Удаление платной консультации, входные данные: SERV_ID {service_id}")
-            stmt = delete(Service).filter_by(id=service_id)
+            stmt = update(Service).values(is_canceled=True).filter_by(id=service_id)
 
             await session.execute(stmt)
             await session.commit()
