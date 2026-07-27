@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     TELEGRAM_BOT_TOKEN: str
 
+    YOOKASSA_SHOP_ID: int
+    YOOKASSA_SEKRET_KEY: str
+
     @property
     def DB_URL(self):
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"

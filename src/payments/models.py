@@ -10,7 +10,6 @@ class PaymentStatus(enum.Enum):
     pending = "pending"
     succeeded = "succeeded"
     cancelled = "cancelled"
-    failed = "failed"
 
 class Payment(Base):
     __tablename__ = "payments"
@@ -21,7 +20,6 @@ class Payment(Base):
     service_id: Mapped[int] = mapped_column(ForeignKey("services.id"))
 
     amount: Mapped[float] = mapped_column()
-    currency: Mapped[str] = mapped_column(default="RUB")
     status: Mapped[PaymentStatus] = mapped_column(default=PaymentStatus.pending)
 
     created_at: Mapped[datetime.datetime] = mapped_column(

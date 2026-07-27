@@ -8,7 +8,7 @@ from telebot.async_telebot import AsyncTeleBot
 
 from src.config import settings
 from src.logger_config import setup_logger
-from src.telegram_bot.meneger_sending import notify_admins, send_notification_telegram
+from src.telegram_bot.meneger_sending import notify_admins
 from src.telegram_bot.models import User
 from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository, \
     ServiceRepository
