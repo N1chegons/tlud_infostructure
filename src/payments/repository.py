@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import insert, update
 from yookassa import Payment, Configuration
 
@@ -21,7 +23,7 @@ class PaymentRepository:
             await session.commit()
 
     @classmethod
-    async def create_payment_link(cls, amount: float, desc: str, user_id: int, service_id: int):
+    async def create_payment_link(cls, amount: float, desc: str, user_id: int, service_id: int, consultation_id: int):
         payment = Payment.create({
             "amount": {
                 "value": f"{amount}",
@@ -38,7 +40,8 @@ class PaymentRepository:
             "description": desc,
             "metadata": {
                 "user_id": str(user_id),
-                "service_id": str(service_id)
+                "service_id": str(service_id),
+                "consultation_id": str(consultation_id)
             }
         })
 
@@ -52,6 +55,8 @@ class PaymentRepository:
     async def update_payment_status(cls, payment_id: int, status_payment: PaymentStatus):
         async with async_session() as session:
             logger.debug(f"Изменение статуса платежа ID {payment_id}, статус платежа: {status_payment}")
-            stmt = update(PaymentModel).values(status=status_payment)
+            paid_at = datetime.now()
+
+            stmt = update(PaymentModel).values(status=status_payment, paid_at=paid_at)
             await session.execute(stmt)
             await session.commit()

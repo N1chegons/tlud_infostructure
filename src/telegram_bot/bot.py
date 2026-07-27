@@ -10,7 +10,7 @@ from src.config import settings
 from src.logger_config import setup_logger
 from src.payments.repository import PaymentRepository
 from src.telegram_bot.meneger_sending import notify_admins
-from src.telegram_bot.models import User
+from src.telegram_bot.models import User, ConsultationType
 from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository, \
     ServiceRepository
 
@@ -851,11 +851,14 @@ async def process_payment(call: CallbackQuery):
     try:
         service = await ServiceRepository.get_service_by_id(service_id)
 
+        consultation_id = await ConsultationRepository.create_consultation(user_id, service.id, service.name, ConsultationType.PAID)
+
         link = await PaymentRepository.create_payment_link(
             amount=service.price,
             desc=f"Оплата консультации: {service.name}",
             user_id=user_id,
-            service_id=service_id
+            service_id=service_id,
+            consultation_id=consultation_id
         )
 
         await PaymentRepository.save_payment(

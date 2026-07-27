@@ -6,7 +6,7 @@ from sqlalchemy.orm import joinedload
 
 from src.db import async_session
 from src.logger_config import setup_logger
-from src.payments.models import Payment
+from src.payments.models import Payment, PaymentStatus
 from src.telegram_bot.models import User, Consultation, ConsultationType, Service
 
 logger = setup_logger('repository', 'telegram', 'repository.log')
@@ -91,11 +91,11 @@ class ConsultationRepository:
                 Payment.status.label("payment_status"),
                 Payment.amount,
                 Payment.paid_at,
-            ).join(
+            ).outerjoin(
                 Payment,
                 and_(
                     Consultation.service_id == Payment.service_id,
-                    Payment.status == "succeeded"
+                    Payment.status == PaymentStatus.succeeded
                 )
             ).where(
                 Consultation.user_id == user_id
@@ -144,15 +144,34 @@ class ConsultationRepository:
             await session.commit()
 
     @classmethod
-    async def create_consultation(cls, user_id: int, service_name: str, type: ConsultationType = ConsultationType.FREE):
+    async def create_consultation(cls, user_id: int, service_id: int,  service_name: str, type: ConsultationType = ConsultationType.FREE):
         async with async_session() as session:
             logger.debug(f"Запись на консультацию для пользователя ID {user_id}")
 
-            stmt = insert(Consultation).values(user_id=user_id, service_name=service_name, type=type)
-            await session.execute(stmt)
+            stmt = insert(Consultation).values(user_id=user_id, service_id=service_id, service_name=service_name, type=type).returning(Consultation.id)
+
+            result = await session.execute(stmt)
             await session.commit()
 
-            logger.debug(f"Пользователь успешно записался")
+            consultation_id = result.scalar_one()
+            logger.debug(f"Консультация создана, ID: {consultation_id}")
+
+            return consultation_id
+
+
+    @classmethod
+    async def update_status(cls, consultation_id: int, payment_id: str):
+        async with async_session() as session:
+            logger.debug(f"Обновление статуса для консультации ID {consultation_id}")
+
+            await session.execute(
+                update(Consultation)
+                .where(Consultation.id == consultation_id)
+                .values(
+                    payment_id=payment_id
+                )
+            )
+            await session.commit()
 
 class ServiceRepository:
     @classmethod

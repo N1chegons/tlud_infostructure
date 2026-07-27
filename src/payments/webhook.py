@@ -4,6 +4,7 @@ from src.logger_config import setup_logger
 from src.payments.models import PaymentStatus
 from src.payments.repository import PaymentRepository
 from src.telegram_bot.meneger_sending import send_notification_telegram
+from src.telegram_bot.repository import ConsultationRepository
 
 app = FastAPI()
 
@@ -23,6 +24,7 @@ async def yookassa_webhook(request: Request):
         logger.info(f"Платеж для пользователя ID {user_id} прошел успешно")
 
         await PaymentRepository.update_payment_status(payment_id, PaymentStatus.succeeded)
+        await ConsultationRepository.update_status()
 
         await send_notification_telegram(user_id, "✅ Платеж успешно прошел")
 
