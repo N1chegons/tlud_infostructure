@@ -18,13 +18,14 @@ async def yookassa_webhook(request: Request):
     metadata = data["object"]["metadata"]
     user_id = int(metadata["user_id"])
     service_id = int(metadata["service_id"])
+    consultation_id = int(metadata["consultation_id"])
     payment_id = data["object"]["id"]
 
     if data.get("event") == "payment.succeeded":
         logger.info(f"Платеж для пользователя ID {user_id} прошел успешно")
 
         await PaymentRepository.update_payment_status(payment_id, PaymentStatus.succeeded)
-        await ConsultationRepository.update_status()
+        await ConsultationRepository.update_status(consultation_id, payment_id)
 
         await send_notification_telegram(user_id, "✅ Платеж успешно прошел")
 
