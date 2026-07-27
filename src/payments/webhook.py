@@ -4,7 +4,6 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from src.logger_config import setup_logger
 from src.payments.models import PaymentStatus
 from src.payments.repository import PaymentRepository
-from src.telegram_bot.bot import bot
 from src.telegram_bot.meneger_sending import send_notification_telegram, notify_admins
 from src.telegram_bot.models import ConsultationType
 from src.telegram_bot.repository import ConsultationRepository, TelegramBotRepository, ServiceRepository
@@ -69,3 +68,5 @@ async def yookassa_webhook(request: Request):
             reply_markup=kb
         )
     return {"status": "ok"}
+
+from src.telegram_bot.bot import bot
