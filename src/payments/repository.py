@@ -1,14 +1,10 @@
-from datetime import datetime
-import re
-
-from sqlalchemy import insert, select, update, delete
-from sqlalchemy.orm import joinedload
-from yookassa import Payment, Webhook, Configuration
+from sqlalchemy import insert, update
+from yookassa import Payment, Configuration
 
 from src.config import settings
 from src.db import async_session
 from src.logger_config import setup_logger
-from src.telegram_bot.models import User, Consultation, ConsultationType, Service
+from src.payments.models import Payment as PaymentModel, PaymentStatus
 
 logger = setup_logger('repository', 'payment', 'payment_repository.log')
 
@@ -16,6 +12,14 @@ Configuration.account_id = settings.YOOKASSA_SHOP_ID
 Configuration.secret_key = settings.YOOKASSA_SEKRET_KEY
 
 class PaymentRepository:
+    @classmethod
+    async def save_payment(cls, amount: float,  user_id: int, service_id: int, payment_id: int):
+        async with async_session() as session:
+            logger.debug(f"Платеж сохранен для пользователя ID {user_id}, консультация ID {service_id}, цена {amount}")
+            stmt = insert(PaymentModel).values(user_id=user_id, service_id=service_id, payment_id=payment_id)
+            session.execute(stmt)
+            session.commit()
+
     @classmethod
     async def create_payment_link(cls, amount: float, desc: str, user_id: int, service_id: int):
         payment = Payment.create({
@@ -38,8 +42,16 @@ class PaymentRepository:
             }
         })
 
+        logger.debug(f"Ссылка для пользователя ID {user_id} создана, конслуьтация ID {service_id}")
         return {
             "payment_id": payment.payment_method.id,
             "payment_link": payment.confirmation.confirmation_url
         }
 
+    @classmethod
+    async def update_payment_status(cls, payment_id: int, status_payment: PaymentStatus):
+        async with async_session() as session:
+            logger.debug(f"Изменение статуса платежа ID {payment_id}, статус платежа: {status_payment}")
+            stmt = update(PaymentModel).values(status=status_payment)
+            session.execute(stmt)
+            session.commit()

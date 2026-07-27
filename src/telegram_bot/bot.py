@@ -8,6 +8,7 @@ from telebot.async_telebot import AsyncTeleBot
 
 from src.config import settings
 from src.logger_config import setup_logger
+from src.payments.repository import PaymentRepository
 from src.telegram_bot.meneger_sending import notify_admins
 from src.telegram_bot.models import User
 from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository, \
@@ -823,7 +824,7 @@ async def service_card(call: CallbackQuery):
         """
 
         kb = InlineKeyboardMarkup()
-        kb.row(InlineKeyboardButton(f"💳 Оплатить {service.price} ₽", callback_data="foo"))
+        kb.row(InlineKeyboardButton(f"💳 Оплатить {service.price} ₽", callback_data=f"pay_{service_id}"))
         kb.row(InlineKeyboardButton("🔙 Назад", callback_data="book"))
 
         await bot.edit_message_text(
@@ -835,6 +836,49 @@ async def service_card(call: CallbackQuery):
 
     except Exception as e:
         logger.error(f"Произошла неизвестная ошибка при просмотре консультации с SERV_ID {service_id}, TG_ID {user_id}, ошибка: {str(e)}")
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("pay_"))
+async def process_payment(call: CallbackQuery):
+    service_id = int(call.data.split("_")[1])
+    user_id = call.from_user.id
+
+    try:
+        service = await ServiceRepository.get_service_by_id(service_id)
+
+        link = await PaymentRepository.create_payment_link(
+            amount=service.price,
+            desc=f"Оплата консультации: {service.name}",
+            user_id=user_id,
+            service_id=service_id
+        )
+
+        await PaymentRepository.save_payment(
+            amount=service.price,
+            user_id=user_id,
+            service_id=service_id,
+            payment_id=link['payment_id']
+        )
+
+        kb = InlineKeyboardMarkup()
+        kb.row(InlineKeyboardButton("💳 Перейти к оплате", url=link['payment_link']))
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"💳 Оплата консультации «{service.name}»\n\nСумма: {service.price} ₽\n\nНажмите на кнопку, чтобы оплатить:",
+            reply_markup=kb
+        )
+
+        await bot.answer_callback_query(call.id, text="✅ Ссылка на оплату создана!\nОжидайте ответ от банка")
+
+    except Exception as e:
+        logger.error(
+            f"Произошла неизвестная ошибка при просмотре консультации с SERV_ID {service_id}, TG_ID {user_id}, ошибка: {str(e)}")
         await bot.answer_callback_query(
             call.id,
             text="❌ Произошла ошибка",
