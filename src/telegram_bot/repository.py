@@ -136,7 +136,7 @@ class ConsultationRepository:
                 Payment.status.label("payment_status"),
             ).join(Consultation, User.id == Consultation.user_id) \
                 .outerjoin(Payment, Consultation.payment_id == Payment.id) \
-                .where(Consultation.type == ConsultationType.PAID) \
+                .where(Consultation.type == ConsultationType.PAID, Payment.status == PaymentStatus.succeeded) \
                 .order_by(Consultation.is_viewed.asc(), Consultation.created_at.desc())
 
             result = await session.execute(query)

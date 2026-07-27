@@ -270,11 +270,7 @@ async def admin_view_free_consultations(call: CallbackQuery):
     consultations = await ConsultationRepository.get_free_consultations_list()
 
     if not consultations:
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text="📭 Бесплатных записей пока нет.",
-        )
+        await bot.answer_callback_query(call.id, text="📭 Бесплатных записей пока нет.", show_alert=True)
         return
 
     text = "🆓 Бесплатные записи:\n\n"
@@ -304,22 +300,16 @@ async def admin_view_paid_consultations(call: CallbackQuery):
     consultations = await ConsultationRepository.get_paid_consultations_list()
 
     if not consultations:
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text="📭 Платных записей пока нет.",
-        )
+        await bot.answer_callback_query(call.id, text="📭 Платных записей пока нет.", show_alert=True)
         return
 
     text = "💳 Платные записи:\n\n"
     for idx, row in enumerate(consultations, 1):
-        viewed_emoji = "🆕" if not row.is_viewed else "✅"
-        status_emoji = "⏳" if row.payment_status == PaymentStatus.pending else "✅" if row.payment_status == PaymentStatus.succeeded else "❌"
-        text += (
+       viewed_emoji = "🆕" if not row.is_viewed else "✅"
+       text += (
             f"{viewed_emoji} {idx}. {row.username}\n"
             f"   📱 {row.phone_number}\n"
             f"   📅 {row.date_of_birth}\n"
-            f"   💰 Статус оплаты: {status_emoji}\n\n"
         )
 
     kb = InlineKeyboardMarkup()
