@@ -17,8 +17,8 @@ class PaymentRepository:
         async with async_session() as session:
             logger.debug(f"Платеж сохранен для пользователя ID {user_id}, консультация ID {service_id}, цена {amount}")
             stmt = insert(PaymentModel).values(user_id=user_id, service_id=service_id, payment_id=payment_id)
-            session.execute(stmt)
-            session.commit()
+            await session.execute(stmt)
+            await session.commit()
 
     @classmethod
     async def create_payment_link(cls, amount: float, desc: str, user_id: int, service_id: int):
@@ -53,5 +53,5 @@ class PaymentRepository:
         async with async_session() as session:
             logger.debug(f"Изменение статуса платежа ID {payment_id}, статус платежа: {status_payment}")
             stmt = update(PaymentModel).values(status=status_payment)
-            session.execute(stmt)
-            session.commit()
+            await session.execute(stmt)
+            await session.commit()

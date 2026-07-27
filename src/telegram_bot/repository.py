@@ -1,11 +1,12 @@
 from datetime import datetime
 import re
 
-from sqlalchemy import insert, select, update, delete
+from sqlalchemy import insert, select, update, delete, and_
 from sqlalchemy.orm import joinedload
 
 from src.db import async_session
 from src.logger_config import setup_logger
+from src.payments.models import Payment
 from src.telegram_bot.models import User, Consultation, ConsultationType, Service
 
 logger = setup_logger('repository', 'telegram', 'repository.log')
@@ -83,14 +84,27 @@ class ConsultationRepository:
         async with async_session() as session:
             query = select(
                 Consultation.id.label("consultation_id"),
-                Consultation.created_at,
                 Consultation.service_name,
+                Consultation.type,
+                Consultation.created_at,
                 Consultation.is_viewed,
-            ).where(Consultation.user_id == user_id).order_by(Consultation.is_viewed.asc(), Consultation.created_at.desc()).limit(10)
+                Payment.status.label("payment_status"),
+                Payment.amount,
+                Payment.paid_at,
+            ).join(
+                Payment,
+                and_(
+                    Consultation.service_id == Payment.service_id,
+                    Payment.status == "succeeded"
+                )
+            ).where(
+                Consultation.user_id == user_id
+            ).order_by(
+                Consultation.created_at.desc()
+            )
 
             result = await session.execute(query)
             rows = result.all()
-
             return rows
 
     @classmethod
