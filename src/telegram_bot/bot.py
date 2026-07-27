@@ -847,6 +847,7 @@ async def service_card(call: CallbackQuery):
 async def process_payment(call: CallbackQuery):
     service_id = int(call.data.split("_")[1])
     user_id = call.from_user.id
+    user = await TelegramBotRepository.get_user(user_id)
 
     try:
         service = await ServiceRepository.get_service_by_id(service_id)
@@ -856,14 +857,14 @@ async def process_payment(call: CallbackQuery):
         link = await PaymentRepository.create_payment_link(
             amount=service.price,
             desc=f"Оплата консультации: {service.name}",
-            user_id=user_id,
+            user_id=user.id,
             service_id=service_id,
             consultation_id=consultation_id
         )
 
         await PaymentRepository.save_payment(
             amount=service.price,
-            user_id=user_id,
+            user_id=user.id,
             service_id=service_id,
             payment_id=link['payment_id']
         )
