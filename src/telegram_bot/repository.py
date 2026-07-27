@@ -93,13 +93,10 @@ class ConsultationRepository:
                 Payment.paid_at,
             ).outerjoin(
                 Payment,
-                and_(
-                    Consultation.service_id == Payment.service_id,
-                    Payment.status == PaymentStatus.succeeded
-                )
+                Consultation.payment_id == Payment.id
             ).where(
                 Consultation.user_id == user_id
-            ).distinct(Consultation.id).order_by(
+            ).order_by(
                 Consultation.created_at.desc()
             )
 

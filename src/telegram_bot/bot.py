@@ -8,6 +8,7 @@ from telebot.async_telebot import AsyncTeleBot
 
 from src.config import settings
 from src.logger_config import setup_logger
+from src.payments.models import PaymentStatus
 from src.payments.repository import PaymentRepository
 from src.telegram_bot.meneger_sending import notify_admins
 from src.telegram_bot.models import User, ConsultationType
@@ -310,10 +311,10 @@ async def admin_view_paid_consultations(call: CallbackQuery):
         )
         return
 
-    text = "💳 **Платные записи:**\n\n"
+    text = "💳 Платные записи:\n\n"
     for idx, row in enumerate(consultations, 1):
         viewed_emoji = "🆕" if not row.is_viewed else "✅"
-        status_emoji = "⏳" if row.payment_status == "pending" else "✅" if row.payment_status == "paid" else "❌"
+        status_emoji = "⏳" if row.payment_status == PaymentStatus.pending else "✅" if row.payment_status == PaymentStatus.succeeded else "❌"
         text += (
             f"{viewed_emoji} {idx}. {row.username}\n"
             f"   📱 {row.phone_number}\n"
