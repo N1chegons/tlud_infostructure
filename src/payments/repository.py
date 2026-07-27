@@ -16,7 +16,7 @@ class PaymentRepository:
     async def save_payment(cls, amount: float,  user_id: int, service_id: int, payment_id: int):
         async with async_session() as session:
             logger.debug(f"Платеж сохранен для пользователя ID {user_id}, консультация ID {service_id}, цена {amount}")
-            stmt = insert(PaymentModel).values(user_id=user_id, service_id=service_id, payment_id=payment_id)
+            stmt = insert(PaymentModel).values(amount=amount, user_id=user_id, service_id=service_id, payment_id=payment_id)
             await session.execute(stmt)
             await session.commit()
 
