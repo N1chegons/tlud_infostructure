@@ -852,7 +852,7 @@ async def process_payment(call: CallbackQuery):
     try:
         service = await ServiceRepository.get_service_by_id(service_id)
 
-        consultation_id = await ConsultationRepository.create_consultation(user_id, service.id, service.name, ConsultationType.PAID)
+        consultation_id = await ConsultationRepository.create_consultation(user.id, service.id, service.name, ConsultationType.PAID)
 
         link = await PaymentRepository.create_payment_link(
             amount=service.price,
