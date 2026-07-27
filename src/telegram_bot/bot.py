@@ -902,7 +902,7 @@ async def process_payment(call: CallbackQuery):
         link = await PaymentRepository.create_payment_link(
             amount=service.price,
             desc=f"Оплата консультации: {service.name}",
-            user_id=user.id,
+            user_id=user_id,
             service_id=service_id
         )
 

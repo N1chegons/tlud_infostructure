@@ -34,7 +34,7 @@ class PaymentRepository:
             },
             "confirmation": {
                 "type": "redirect",
-                "return_url": "https://t.me/your_bot"
+                "return_url": "https://t.me/psylogic_cifr_bot"
             },
             "capture": True,
             "description": desc,
