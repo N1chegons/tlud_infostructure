@@ -174,39 +174,83 @@ async def show_edit_service_confirm(user_id: int):
         reply_markup=kb
     )
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_paid_consultations_settings")
+async def admin_paid_consultations_settings(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    if user_id in create_service_data:
+        del create_service_data[user_id]
+
+    try:
+        kb = InlineKeyboardMarkup()
+
+        paid_consultations = await ServiceRepository.get_services_list_by_admin()
+
+        if not paid_consultations:
+            text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на ➕ Добавить"
+        else:
+            text = "📋 Список консультаций:\n\n"
+            for idx, con in enumerate(paid_consultations, 1):
+                text += (f"{idx}. {con.name} — {con.price} ₽\n"
+                         f"{con.description}\n\n")
+
+        kb.add(
+            InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
+            InlineKeyboardButton("🔙 Назад", callback_data="admin_back"),
+            InlineKeyboardButton("🗑️ Удалить", callback_data="admin_delete_service")
+        )
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        if "Error code: 400" in str(e):
+            pass
+
+        logger.error(
+            f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
+        await bot.send_message(
+            chat_id=call.message.chat.id,
+            text="❌ Произошла неизвестная ошибка",
+        )
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_consultations")
 async def admin_view_consultations(call: CallbackQuery):
     user_id = call.from_user.id
 
     try:
         logger.info(f"Администратор ID {user_id} просматривает список заявок на бесплатную консультацию")
-        consultations = await ConsultationRepository.get_consultation_list()
+        # consultations = await ConsultationRepository.get_consultation_list()
+        #
+        # if not consultations:
+        #     await bot.edit_message_text(
+        #         chat_id=user_id,
+        #         message_id=call.message.message_id,
+        #         text="📭 Записей пока нет.",
+        #     )
+        #     return
 
-        if not consultations:
-            await bot.edit_message_text(
-                chat_id=user_id,
-                message_id=call.message.message_id,
-                text="📭 Записей пока нет.",
-            )
-            return
-
-        text = "📋 **Записи на консультацию:**\n\n"
-        for idx, row in enumerate(consultations, 1):
-            viewed_emoji = "🆕" if not row.is_viewed else "✅"
-            text += (
-                f"{viewed_emoji} {idx}. {row.username}\n"
-                f"   📱 {row.phone_number}\n"
-                f"   📅 {row.date_of_birth}\n\n"
-            )
+        # text = "📋 Записи на консультацию:\n\n"
+        # for idx, row in enumerate(consultations, 1):
+        #     viewed_emoji = "🆕" if not row.is_viewed else "✅"
+        #     text += (
+        #         f"{viewed_emoji} {idx}. {row.username}\n"
+        #         f"   📱 {row.phone_number}\n"
+        #         f"   📅 {row.date_of_birth}\n\n"
+        #     )
         kb = InlineKeyboardMarkup()
-        kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed"))
-        kb.row(InlineKeyboardButton("🎤 Отправить голосовое", callback_data="admin_send_voice"))
+        kb.row(InlineKeyboardButton("🆓 Бесплатные записи", callback_data="admin_view_free"))
+        kb.row(InlineKeyboardButton("💳 Платные записи", callback_data="admin_view_paid"))
         kb.row( InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
 
         await bot.edit_message_text(
             chat_id=user_id,
             message_id=call.message.message_id,
-            text=text,
+            text="Выберите тип записей:",
             reply_markup=kb
         )
 
@@ -218,13 +262,83 @@ async def admin_view_consultations(call: CallbackQuery):
             show_alert=True
         )
 
-@bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed")
+@bot.callback_query_handler(func=lambda call: call.data == "admin_view_free")
+async def admin_view_free_consultations(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    consultations = await ConsultationRepository.get_free_consultations_list()
+
+    if not consultations:
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text="📭 Бесплатных записей пока нет.",
+        )
+        return
+
+    text = "🆓 Бесплатные записи:\n\n"
+    for idx, row in enumerate(consultations, 1):
+        viewed_emoji = "🆕" if not row.is_viewed else "✅"
+        text += (
+            f"{viewed_emoji} {idx}. {row.username}\n"
+            f"   📱 {row.phone_number}\n"
+            f"   📅 {row.date_of_birth}\n\n"
+        )
+
+    kb = InlineKeyboardMarkup()
+    kb.row(InlineKeyboardButton("🎤 Отправить голосовое", callback_data="admin_send_voice"))
+    kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_consultations"))
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=text,
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_view_paid")
+async def admin_view_paid_consultations(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    consultations = await ConsultationRepository.get_paid_consultations_list()
+
+    if not consultations:
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text="📭 Платных записей пока нет.",
+        )
+        return
+
+    text = "💳 **Платные записи:**\n\n"
+    for idx, row in enumerate(consultations, 1):
+        viewed_emoji = "🆕" if not row.is_viewed else "✅"
+        status_emoji = "⏳" if row.payment_status == "pending" else "✅" if row.payment_status == "paid" else "❌"
+        text += (
+            f"{viewed_emoji} {idx}. {row.username}\n"
+            f"   📱 {row.phone_number}\n"
+            f"   📅 {row.date_of_birth}\n"
+            f"   💰 Статус оплаты: {status_emoji}\n\n"
+        )
+
+    kb = InlineKeyboardMarkup()
+    kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed_paid"))
+    kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_consultations"))
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=text,
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed_paid")
 async def admin_mark_viewed(call: CallbackQuery):
     user_id = call.from_user.id
 
     try:
         logger.info(f"Администратор ID {user_id} отмечает просмотренную заявку")
-        unviewed = await ConsultationRepository.get_unviewed_consultation_list()
+        unviewed = await ConsultationRepository.get_unviewed_consultation_list(ConsultationType.PAID)
 
         if not unviewed:
             await bot.answer_callback_query(call.id, "✅ Все записи уже просмотрены!")
@@ -287,63 +401,6 @@ async def admin_mark_single(call: CallbackQuery):
             text="❌ Произошла неизвестная ошибка",
         )
 
-@bot.callback_query_handler(func=lambda call: call.data == "admin_paid_consultations_settings")
-async def admin_paid_consultations_settings(call: CallbackQuery):
-    user_id = call.from_user.id
-
-    if user_id in create_service_data:
-        del create_service_data[user_id]
-
-    try:
-        kb = InlineKeyboardMarkup()
-
-        paid_consultations = await ServiceRepository.get_services_list_by_admin()
-
-        if not paid_consultations:
-            text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на ➕ Добавить"
-        else:
-            text = "📋 Список консультаций:\n\n"
-            for idx, con in enumerate(paid_consultations, 1):
-                text += (f"{idx}. {con.name} — {con.price} ₽\n"
-                         f"{con.description}\n\n")
-
-        # if not paid_consultations:
-        #     text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на - ➕ Добавить"
-        # else:
-        #     text = "⚒ Выберите консультацию для редактирования:\n\n"
-        #
-        #     for con in paid_consultations:
-        #         kb.row(
-        #             InlineKeyboardButton(
-        #                 f"💬 {con.name}",
-        #                 callback_data=f"admin_service_{con.id}"
-        #             )
-        #         )
-
-        kb.add(
-            InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
-            InlineKeyboardButton("🔙 Назад", callback_data="admin_back"),
-            InlineKeyboardButton("🗑️ Удалить", callback_data="admin_delete_service")
-        )
-
-        await bot.edit_message_text(
-            chat_id=user_id,
-            message_id=call.message.message_id,
-            text=text,
-            reply_markup=kb
-        )
-
-    except Exception as e:
-        if "Error code: 400" in str(e):
-            pass
-
-        logger.error(
-            f"Произошла неизвестная ошибка при просмотре у администратора ADMIN_ID {user_id}, ошибка: {str(e)}")
-        await bot.send_message(
-            chat_id=call.message.chat.id,
-            text="❌ Произошла неизвестная ошибка",
-        )
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("create_service"))
 async def create_service(call: CallbackQuery):
     user_id = call.from_user.id
@@ -371,7 +428,7 @@ async def admin_send_voice_list(call: CallbackQuery):
     user_id = call.from_user.id
 
     try:
-        unviewed = await ConsultationRepository.get_unviewed_consultation_list()
+        unviewed = await ConsultationRepository.get_unviewed_consultation_list(ConsultationType.FREE)
 
         if not unviewed:
             await bot.answer_callback_query(call.id, text="😕 Нет непросмотренных записей", show_alert=True)
@@ -586,7 +643,7 @@ async def recording_consultation(call: CallbackQuery):
             return
 
 
-        await ConsultationRepository.create_consultation(user.id, "Бесплатная консультация")
+        await ConsultationRepository.create_consultation(user.id,None, None, "Бесплатная консультация")
         await TelegramBotRepository.update_free_consultation_status(user_id)
 
         await notify_admins(f"Новая запись на консультацию. Клиент: {user.username}.\n\nПерейти к записям 👇")
@@ -633,7 +690,7 @@ async def confirm(call: CallbackQuery):
         user = await TelegramBotRepository.register_user(user_id, data["name"], data["birth"], data["phone"])
         user = await TelegramBotRepository.get_user(user_id)
 
-        await ConsultationRepository.create_consultation(user.id, "Бесплатная консультация")
+        await ConsultationRepository.create_consultation(user.id, None, None,"Бесплатная консультация")
         await TelegramBotRepository.update_free_consultation_status(user_id)
 
         await notify_admins(f"Новая запись на консультацию. Клиент: {user.username}.\n\nПерейти к записям 👇")
@@ -842,7 +899,6 @@ async def service_card(call: CallbackQuery):
             show_alert=True
         )
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pay_"))
 async def process_payment(call: CallbackQuery):
     service_id = int(call.data.split("_")[1])
@@ -852,14 +908,11 @@ async def process_payment(call: CallbackQuery):
     try:
         service = await ServiceRepository.get_service_by_id(service_id)
 
-        consultation_id = await ConsultationRepository.create_consultation(user.id, service.id, service.name, ConsultationType.PAID)
-
         link = await PaymentRepository.create_payment_link(
             amount=service.price,
             desc=f"Оплата консультации: {service.name}",
             user_id=user.id,
-            service_id=service_id,
-            consultation_id=consultation_id
+            service_id=service_id
         )
 
         await PaymentRepository.save_payment(
@@ -877,8 +930,6 @@ async def process_payment(call: CallbackQuery):
             text=f"💳 Оплата консультации «{service.name}»\n\nСумма: {service.price} ₽\n\nНажмите на кнопку, чтобы оплатить:",
             reply_markup=kb
         )
-
-        await bot.answer_callback_query(call.id, text="✅ Ссылка на оплату создана!\nОжидайте ответ от банка")
 
     except Exception as e:
         logger.error(

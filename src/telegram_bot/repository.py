@@ -99,7 +99,7 @@ class ConsultationRepository:
                 )
             ).where(
                 Consultation.user_id == user_id
-            ).order_by(
+            ).distinct(Consultation.id).order_by(
                 Consultation.created_at.desc()
             )
 
@@ -108,7 +108,7 @@ class ConsultationRepository:
             return rows
 
     @classmethod
-    async def get_unviewed_consultation_list(cls):
+    async def get_free_consultations_list(cls):
         async with async_session() as session:
             query = select(
                 User.id,
@@ -118,7 +118,45 @@ class ConsultationRepository:
                 Consultation.id.label("consultation_id"),
                 Consultation.is_viewed,
                 Consultation.created_at,
-            ).join(Consultation, User.id == Consultation.user_id).order_by(Consultation.is_viewed.asc(),Consultation.created_at.desc()).where(Consultation.is_viewed == False).limit(10)
+            ).join(Consultation, User.id == Consultation.user_id) \
+                .where(Consultation.type == ConsultationType.FREE) \
+                .order_by(Consultation.is_viewed.asc(), Consultation.created_at.desc())
+
+            result = await session.execute(query)
+            return result.all()
+
+    @classmethod
+    async def get_paid_consultations_list(cls):
+        async with async_session() as session:
+            query = select(
+                User.id,
+                User.username,
+                User.phone_number,
+                User.date_of_birth,
+                Consultation.id.label("consultation_id"),
+                Consultation.is_viewed,
+                Consultation.created_at,
+                Payment.status.label("payment_status"),
+            ).join(Consultation, User.id == Consultation.user_id) \
+                .outerjoin(Payment, Consultation.payment_id == Payment.id) \
+                .where(Consultation.type == ConsultationType.PAID) \
+                .order_by(Consultation.is_viewed.asc(), Consultation.created_at.desc())
+
+            result = await session.execute(query)
+            return result.all()
+
+    @classmethod
+    async def get_unviewed_consultation_list(cls, type: ConsultationType):
+        async with async_session() as session:
+            query = select(
+                User.id,
+                User.username,
+                User.phone_number,
+                User.date_of_birth,
+                Consultation.id.label("consultation_id"),
+                Consultation.is_viewed,
+                Consultation.created_at,
+            ).join(Consultation, User.id == Consultation.user_id).order_by(Consultation.is_viewed.asc(),Consultation.created_at.desc()).where(Consultation.type == type, Consultation.is_viewed == False).limit(10)
 
             result = await session.execute(query)
             rows = result.all()
@@ -144,11 +182,11 @@ class ConsultationRepository:
             await session.commit()
 
     @classmethod
-    async def create_consultation(cls, user_id: int, service_id: int,  service_name: str, type: ConsultationType = ConsultationType.FREE):
+    async def create_consultation(cls, user_id: int, service_id: int, pay_id: int, service_name: str, type: ConsultationType = ConsultationType.FREE):
         async with async_session() as session:
             logger.debug(f"Запись на консультацию для пользователя ID {user_id}")
 
-            stmt = insert(Consultation).values(user_id=user_id, service_id=service_id, service_name=service_name, type=type).returning(Consultation.id)
+            stmt = insert(Consultation).values(user_id=user_id, service_id=service_id, payment_id=pay_id, service_name=service_name, type=type).returning(Consultation.id)
 
             result = await session.execute(stmt)
             await session.commit()
@@ -157,7 +195,6 @@ class ConsultationRepository:
             logger.debug(f"Консультация создана, ID: {consultation_id}")
 
             return consultation_id
-
 
     @classmethod
     async def update_status(cls, consultation_id: int, payment_id: str):

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import insert, update
+from sqlalchemy import insert, update, select
 from yookassa import Payment, Configuration
 
 from src.config import settings
@@ -23,7 +23,7 @@ class PaymentRepository:
             await session.commit()
 
     @classmethod
-    async def create_payment_link(cls, amount: float, desc: str, user_id: int, service_id: int, consultation_id: int):
+    async def create_payment_link(cls, amount: float, desc: str, user_id: int, service_id: int):
         payment = Payment.create({
             "amount": {
                 "value": f"{amount}",
@@ -40,8 +40,7 @@ class PaymentRepository:
             "description": desc,
             "metadata": {
                 "user_id": str(user_id),
-                "service_id": str(service_id),
-                "consultation_id": str(consultation_id)
+                "service_id": str(service_id)
             }
         })
 
@@ -59,4 +58,22 @@ class PaymentRepository:
 
             stmt = update(PaymentModel).values(status=status_payment, paid_at=paid_at)
             await session.execute(stmt)
+            await session.commit()
+
+    @classmethod
+    async def get_by_yookassa_id(cls, yookassa_payment_id: str):
+        async with async_session() as session:
+            result = await session.execute(
+                select(PaymentModel).where(PaymentModel.payment_id == yookassa_payment_id)
+            )
+            return result.scalar_one_or_none()
+
+    @classmethod
+    async def update_status_by_yookassa_id(cls, yookassa_payment_id: str, status: str):
+        async with async_session() as session:
+            await session.execute(
+                update(PaymentModel)
+                .where(PaymentModel.payment_id == yookassa_payment_id)
+                .values(status=status)
+            )
             await session.commit()
