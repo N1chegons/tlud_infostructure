@@ -8,12 +8,11 @@ from telebot.async_telebot import AsyncTeleBot
 
 from src.config import settings
 from src.logger_config import setup_logger
-from src.payments.models import PaymentStatus
 from src.payments.repository import PaymentRepository
 from src.telegram_bot.meneger_sending import notify_admins
 from src.telegram_bot.models import User, ConsultationType
 from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository, \
-    ServiceRepository
+    ServiceRepository, StatisticsAdmin
 
 BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 WEBHOOK_PATH = settings.WEBHOOK_PATH
@@ -28,6 +27,7 @@ def get_admins_keyboard():
     kb = InlineKeyboardMarkup()
     kb.row(InlineKeyboardButton("📋 Посмотреть записи", callback_data="admin_view_consultations"))
     kb.row(InlineKeyboardButton("⚙️ Настройки консультаций", callback_data="admin_paid_consultations_settings"))
+    kb.row(InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"))
     return kb
 
 async def show_start_menu(user: User, chat_id: int, message_id: int = None):
@@ -113,7 +113,7 @@ async def admin(message):
                 "🔐 Админ-панель\n\n"
                 "Добро пожаловать в панель управления ботом!\n"
                 "Здесь вы можете управлять записями на консультацию\n\n"
-                "📌 **Доступные действия:**\n"
+                "📌 Доступные действия:\n"
                 "• 📋 Просмотр всех записей\n"
                 "• ⚙️ Управление консультациями\n\n"
                 "Выберите действие ниже 👇"
@@ -308,6 +308,7 @@ async def admin_view_paid_consultations(call: CallbackQuery):
        viewed_emoji = "🆕" if not row.is_viewed else "✅"
        text += (
             f"{viewed_emoji} {idx}. {row.username}\n"
+            f"   📌 {row.service_name}\n"
             f"   📱 {row.phone_number}\n"
             f"   📅 {row.date_of_birth}\n"
         )
@@ -593,6 +594,53 @@ async def confirm_create_service(call: CallbackQuery):
             show_alert=True
         )
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_stats")
+async def admin_stats(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    try:
+        total_paid = await StatisticsAdmin.count_paid_consultations()
+        total_free = await StatisticsAdmin.count_free_consultations()
+        today_paid = await StatisticsAdmin.count_paid_consultations_today()
+        today_free = await StatisticsAdmin.count_free_consultations_today()
+        unviewed = await StatisticsAdmin.count_unviewed()
+        paid_statuses = await StatisticsAdmin.count_paid_statuses()
+        total_clients = await StatisticsAdmin.count_users()
+
+        text = f"""
+📊 Статистика бота
+
+👥 Клиенты:
+• Всего клиентов: {total_clients}
+
+📋 Консультации:
+• Всего платных: {total_paid}
+• Всего бесплатных: {total_free}
+• За сегодня (платных): {today_paid}
+• За сегодня (бесплатных): {today_free}
+• Непросмотренных: {unviewed}
+
+💳 Статусы платных записей:
+• Оплачено: {paid_statuses.get('paid', 0)}
+• Ожидают оплаты: {paid_statuses.get('pending', 0)}
+• Отменено: {paid_statuses.get('canceled', 0)}
+        """
+
+        kb = InlineKeyboardMarkup()
+        kb.row(InlineKeyboardButton("🔄 Обновить", callback_data="admin_stats"))
+        kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
+
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+
+    except Exception as e:
+        logger.error(f"Ошибка статистики: {e}")
+        await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
     user_id = call.from_user.id
@@ -601,10 +649,10 @@ async def admin_back(call: CallbackQuery):
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
         text=(
-            "🔐 **Админ-панель**\n\n"
+            "🔐 Админ-панель\n\n"
             "Добро пожаловать в панель управления ботом!\n"
             "Здесь вы можете управлять записями на консультацию\n\n"
-            "📌 **Доступные действия:**\n"
+            "📌 Доступные действия:\n"
             "• 📋 Просмотр всех записей\n"
             "• ⚙️ Управление консультациями\n\n"
             "Выберите действие ниже 👇"

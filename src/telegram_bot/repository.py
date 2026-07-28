@@ -1,7 +1,7 @@
 from datetime import datetime
 import re
 
-from sqlalchemy import insert, select, update, delete, and_
+from sqlalchemy import insert, select, update, delete, and_, func
 from sqlalchemy.orm import joinedload
 
 from src.db import async_session
@@ -133,6 +133,7 @@ class ConsultationRepository:
                 Consultation.id.label("consultation_id"),
                 Consultation.is_viewed,
                 Consultation.created_at,
+                Consultation.service_name,
                 Payment.status.label("payment_status"),
             ).join(Consultation, User.id == Consultation.user_id) \
                 .outerjoin(Payment, Consultation.payment_id == Payment.id) \
@@ -278,6 +279,74 @@ class AdminRepository:
     @classmethod
     async def get_admin_ids(cls) -> list[int]:
         return cls.ADMIN_IDS
+
+class StatisticsAdmin:
+    @classmethod
+    async def count_paid_consultations(cls):
+        async with async_session() as session:
+            result = await session.execute(
+                select(func.count()).where(Consultation.type == ConsultationType.PAID)
+            )
+            return result.scalar()
+
+    @classmethod
+    async def count_free_consultations(cls):
+        async with async_session() as session:
+            result = await session.execute(
+                select(func.count()).where(Consultation.type == ConsultationType.FREE)
+            )
+            return result.scalar()
+
+    @classmethod
+    async def count_paid_consultations_today(cls):
+        async with async_session() as session:
+            today = datetime.utcnow().date()
+            result = await session.execute(
+                select(func.count())
+                .where(
+                    Consultation.type == ConsultationType.PAID,
+                    func.date(Consultation.created_at) == today
+                )
+            )
+            return result.scalar()
+
+    @classmethod
+    async def count_free_consultations_today(cls):
+        async with async_session() as session:
+            today = datetime.utcnow().date()
+            result = await session.execute(
+                select(func.count())
+                .where(
+                    Consultation.type == ConsultationType.FREE,
+                    func.date(Consultation.created_at) == today
+                )
+            )
+            return result.scalar()
+
+    @classmethod
+    async def count_unviewed(cls):
+        async with async_session() as session:
+            result = await session.execute(
+                select(func.count()).where(Consultation.is_viewed == False)
+            )
+            return result.scalar()
+
+    @classmethod
+    async def count_paid_statuses(cls):
+        async with async_session() as session:
+            result = await session.execute(
+                select(Payment.status, func.count())
+                .join(Consultation, Payment.id == Consultation.payment_id)
+                .group_by(Payment.status)
+            )
+
+            return {status: count for status, count in result.all()}
+
+    @classmethod
+    async def count_users(cls):
+        async with async_session() as session:
+            result = await session.execute(select(func.count()).select_from(User))
+            return result.scalar()
 
 class Validation:
     @classmethod
