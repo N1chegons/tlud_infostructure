@@ -1104,7 +1104,7 @@ async def support_confirm(call: CallbackQuery):
             await bot.send_message(user_id, "❌ Вы не зарегистрированы. Нажмите /start")
             return
 
-        await SupportRepository.create_request(user_id=user.id, message=text)
+        await SupportRepository.create(user_id=user.id, message=text)
 
         registration_data[user_id]["mode"] = None
         registration_data[user_id]["support_message"] = None
@@ -1123,7 +1123,7 @@ async def support_confirm(call: CallbackQuery):
 
     except Exception as e:
         logger.error(
-            f"Произошла неизвестная ошибка при отправке обращения от пользователя ID {user.id}, ошибка: {str(e)}")
+            f"Произошла неизвестная ошибка при отправке обращения от пользователя TG_ID {user_id}, ошибка: {str(e)}")
         await bot.answer_callback_query(
             call.id,
             text="❌ Произошла ошибка",
@@ -1167,41 +1167,29 @@ async def handle_create_service_text(message):
                 text="❌ Неверный формат. Введите число, например: 3000"
             )
 
-@bot.message_handler(func=lambda message: message.from_user.id in edit_service_data)
-async def handle_edit_service_text(message):
-    user_id = message.from_user.id
-    data = edit_service_data[user_id]
-
-    step = data.get("step", "name")
-
-    if step == "name":
-        data["name"] = message.text.strip()
-        data["step"] = "price"
-
-        await bot.send_message(
-            chat_id=user_id,
-            text=f"💰 Введите новую цену консультации:\n\n(текущая: {data['price']} ₽)"
-        )
-
-    elif step == "price":
-        try:
-            price = float(message.text.strip())
-            data["price"] = price
-            data["step"] = "confirm"
-
-            await show_edit_service_confirm(user_id)
-
-        except ValueError:
-            await bot.send_message(
-                chat_id=user_id,
-                text="❌ Неверный формат. Введите число, например: 3000"
-            )
-
 @bot.message_handler(func=lambda message: True)
 async def handle_text(message):
     user_id = message.from_user.id
 
     if user_id in registration_data and registration_data[user_id].get("mode") == "support":
+        text = message.text
+        if not text:
+            await bot.send_message(user_id, "❌ Сообщение не может быть пустым.")
+            return
+
+        registration_data[user_id]["support_message"] = text
+
+        kb = InlineKeyboardMarkup()
+        kb.row(
+            InlineKeyboardButton("✅ Да, отправить", callback_data="support_confirm"),
+            InlineKeyboardButton("❌ Отменить", callback_data="support_cancel")
+        )
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"📝 Ваше сообщение:\n\n{text}\n\nВсё верно?",
+            reply_markup=kb
+        )
         return
 
     if user_id not in registration_data:
@@ -1218,7 +1206,8 @@ async def handle_text(message):
 
         registration_data[user_id]["name"] = message.text
         registration_data[user_id]["step"] = "birth"
-        await bot.send_message(chat_id=user_id, text="📅 Теперь дату рождения, в формате ДД.ММ.ГГГГ (Пример: 31.01.2000):")
+        await bot.send_message(chat_id=user_id,
+                               text="📅 Теперь дату рождения, в формате ДД.ММ.ГГГГ (Пример: 31.01.2000):")
 
     elif step == "birth":
         birth = message.text.strip()
@@ -1257,7 +1246,7 @@ async def handle_text(message):
         Имя: {data['name']}
         Дата рождения: {data['birth']}
         Телефон: {phone}
-    
+
         Всё верно?
         """
         kb = InlineKeyboardMarkup()
@@ -1271,28 +1260,6 @@ async def handle_text(message):
             text=text,
             reply_markup=kb
         )
-
-@bot.message_handler(func=lambda message: True)
-async def handle_support_message(message):
-    user_id = message.from_user.id
-    text = message.text
-
-    if user_id not in registration_data or registration_data[user_id].get("mode") != "support":
-        return
-
-    registration_data[user_id]["support_message"] = text
-
-    kb = InlineKeyboardMarkup()
-    kb.row(
-        InlineKeyboardButton("✅ Да, отправить", callback_data="support_confirm"),
-        InlineKeyboardButton("❌ Отменить", callback_data="back_to_start")
-    )
-
-    await bot.send_message(
-        chat_id=user_id,
-        text=f"📝 Ваше сообщение:\n\n{text}\n\nВсё верно?",
-        reply_markup=kb
-    )
 
 @bot.message_handler(content_types=['voice'])
 async def handle_admin_voice_send(message):
