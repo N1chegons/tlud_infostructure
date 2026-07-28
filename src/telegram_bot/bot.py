@@ -115,7 +115,8 @@ async def admin(message):
                 "Здесь вы можете управлять записями на консультацию\n\n"
                 "📌 Доступные действия:\n"
                 "• 📋 Просмотр всех записей\n"
-                "• ⚙️ Управление консультациями\n\n"
+                "• ⚙️ Управление консультациями\n"
+                "• 📊 Статистика по консультациям\n\n"
                 "Выберите действие ниже 👇"
             ),
             reply_markup=get_admins_keyboard()
@@ -621,9 +622,9 @@ async def admin_stats(call: CallbackQuery):
 • Непросмотренных: {unviewed}
 
 💳 Статусы платных записей:
-• Оплачено: {paid_statuses.get('paid', 0)}
+• Оплачено: {paid_statuses.get('succeeded', 0)}
 • Ожидают оплаты: {paid_statuses.get('pending', 0)}
-• Отменено: {paid_statuses.get('canceled', 0)}
+• Отменено: {paid_statuses.get('cancelled', 0)}
         """
 
         kb = InlineKeyboardMarkup()
@@ -653,7 +654,8 @@ async def admin_back(call: CallbackQuery):
             "Здесь вы можете управлять записями на консультацию\n\n"
             "📌 Доступные действия:\n"
             "• 📋 Просмотр всех записей\n"
-            "• ⚙️ Управление консультациями\n\n"
+            "• ⚙️ Управление консультациями\n"
+            "• 📊 Статистика по консультациям\n\n"
             "Выберите действие ниже 👇"
         ),
         reply_markup=get_admins_keyboard()
