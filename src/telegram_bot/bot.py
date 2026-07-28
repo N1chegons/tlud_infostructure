@@ -627,7 +627,6 @@ async def admin_stats(call: CallbackQuery):
         """
 
         kb = InlineKeyboardMarkup()
-        kb.row(InlineKeyboardButton("🔄 Обновить", callback_data="admin_stats"))
         kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
 
         await bot.edit_message_text(
