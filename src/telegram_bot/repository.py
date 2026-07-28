@@ -336,11 +336,9 @@ class StatisticsAdmin:
         async with async_session() as session:
             result = await session.execute(
                 select(Payment.status, func.count())
-                .join(Consultation, Payment.id == Consultation.payment_id)
                 .group_by(Payment.status)
             )
-
-            return {status: count for status, count in result.all()}
+            return {status.value: count for status, count in result.all()}
 
     @classmethod
     async def count_users(cls):
