@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 from src.db import async_session
 from src.logger_config import setup_logger
 from src.payments.models import Payment, PaymentStatus
-from src.telegram_bot.models import User, Consultation, ConsultationType, Service
+from src.telegram_bot.models import User, Consultation, ConsultationType, Service, SupportRequest
 
 logger = setup_logger('repository', 'telegram', 'repository.log')
 
@@ -345,6 +345,101 @@ class StatisticsAdmin:
         async with async_session() as session:
             result = await session.execute(select(func.count()).select_from(User))
             return result.scalar()
+
+class SupportRepository:
+    @classmethod
+    async def create(cls, user_id: int, message: str) -> SupportRequest:
+        logger.info(f"Создание обращения в поддержку от пользователя ID {user_id}")
+        logger.debug(f"Текст сообщения: {message[:50]}...")
+
+        async with async_session() as session:
+            support_request = SupportRequest(
+                user_id=user_id,
+                message=message,
+                is_viewed=False
+            )
+            session.add(support_request)
+            await session.commit()
+            await session.refresh(support_request)
+
+            logger.info(f"Обращение создано, ID: {support_request.id}")
+            return support_request
+
+    @classmethod
+    async def get_all(cls, limit: int = 20):
+        logger.debug(f"Получение списка обращений в поддержку (лимит: {limit})")
+
+        async with async_session() as session:
+            result = await session.execute(
+                select(SupportRequest)
+                .options(joinedload(SupportRequest.user))
+                .order_by(SupportRequest.created_at.desc())
+                .limit(limit)
+            )
+            requests = result.scalars().all()
+            logger.debug(f"Найдено обращений: {len(requests)}")
+            return requests
+
+    @classmethod
+    async def get_all_with_users(cls, limit: int = 20):
+        logger.debug(f"Получение всех обращений с пользователями (лимит: {limit})")
+
+        async with async_session() as session:
+            result = await session.execute(
+                select(SupportRequest)
+                .options(joinedload(SupportRequest.user))
+                .order_by(SupportRequest.is_viewed.asc(), SupportRequest.created_at.desc())
+                .limit(limit)
+            )
+            return result.scalars().all()
+
+    @classmethod
+    async def get_unviewed(cls, limit: int = 20):
+        """Получить только непросмотренные обращения"""
+        logger.debug(f"Получение непросмотренных обращений (лимит: {limit})")
+
+        async with async_session() as session:
+            result = await session.execute(
+                select(SupportRequest)
+                .options(joinedload(SupportRequest.user))
+                .where(SupportRequest.is_viewed == False)
+                .order_by(SupportRequest.created_at.desc())
+                .limit(limit)
+            )
+            requests = result.scalars().all()
+            logger.debug(f"Найдено непросмотренных обращений: {len(requests)}")
+            return requests
+
+    @classmethod
+    async def get_by_id(cls, support_id: int):
+        logger.debug(f"Получение обращения по ID: {support_id}")
+
+        async with async_session() as session:
+            result = await session.execute(
+                select(SupportRequest)
+                .options(joinedload(SupportRequest.user))
+                .where(SupportRequest.id == support_id)
+            )
+            request = result.scalar_one_or_none()
+            if request:
+                logger.debug(f"Обращение найдено, просмотрено: {request.is_viewed}")
+            else:
+                logger.warning(f"Обращение с ID {support_id} не найдено")
+            return request
+
+    @classmethod
+    async def mark_as_viewed(cls, support_id: int):
+        """Отметить обращение как просмотренное"""
+        logger.info(f"Отметка обращения ID {support_id} как просмотренного")
+
+        async with async_session() as session:
+            await session.execute(
+                update(SupportRequest)
+                .where(SupportRequest.id == support_id)
+                .values(is_viewed=True)
+            )
+            await session.commit()
+            logger.info(f"Обращение ID {support_id} отмечено как просмотренное")
 
 class Validation:
     @classmethod

@@ -9,10 +9,10 @@ from telebot.async_telebot import AsyncTeleBot
 from src.config import settings
 from src.logger_config import setup_logger
 from src.payments.repository import PaymentRepository
-from src.telegram_bot.meneger_sending import notify_admins
+from src.telegram_bot.meneger_sending import notify_admins, notify_dev
 from src.telegram_bot.models import User, ConsultationType
 from src.telegram_bot.repository import TelegramBotRepository, ConsultationRepository, Validation, AdminRepository, \
-    ServiceRepository, StatisticsAdmin
+    ServiceRepository, StatisticsAdmin, SupportRepository
 
 BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 WEBHOOK_PATH = settings.WEBHOOK_PATH
@@ -28,6 +28,7 @@ def get_admins_keyboard():
     kb.row(InlineKeyboardButton("📋 Посмотреть записи", callback_data="admin_view_consultations"))
     kb.row(InlineKeyboardButton("⚙️ Настройки консультаций", callback_data="admin_paid_consultations_settings"))
     kb.row(InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"))
+    kb.row(InlineKeyboardButton("🆘 Обращения в поддержку", callback_data="admin_view_support"))
     return kb
 
 async def show_start_menu(user: User, chat_id: int, message_id: int = None):
@@ -36,10 +37,10 @@ async def show_start_menu(user: User, chat_id: int, message_id: int = None):
     keyboard.row(InlineKeyboardButton(text="👤 Профиль", callback_data="profile"))
     keyboard.row(InlineKeyboardButton(text="📋 Мои консультации", callback_data="my_consultations"))
     keyboard.row(InlineKeyboardButton(text="✍️ Записаться", callback_data="book"))
-
+    keyboard.row(InlineKeyboardButton(text="🆘 Поддержка", callback_data="support"))
 
     await bot.edit_message_text(
-        text=f"Привет {user.username}!\nТы уже зарегестрирован, выбери действие ниже 👇",
+        text=f"Привет, {user.username}!\nТы уже зарегестрирован, выбери действие ниже 👇",
         chat_id=chat_id,
         message_id=message_id,
         reply_markup=keyboard
@@ -77,10 +78,11 @@ async def start(message):
         keyboard.row(InlineKeyboardButton(text="👤 Профиль",  callback_data="profile"))
         keyboard.row(InlineKeyboardButton(text="📋 Мои консультации",  callback_data="my_consultations"))
         keyboard.row(InlineKeyboardButton(text="✍️ Записаться",  callback_data="book"))
+        keyboard.row(InlineKeyboardButton(text="🆘 Поддержка", callback_data="support"))
 
         await bot.send_message(
             chat_id=message.chat.id,
-            text=f"Привет {user.username}!\nТы уже зарегестрирован, выбери действие ниже 👇",
+            text=f"Привет, {user.username}!\nТы уже зарегестрирован, выбери действие ниже 👇",
             reply_markup=keyboard
         )
         return
@@ -116,7 +118,8 @@ async def admin(message):
                 "📌 Доступные действия:\n"
                 "• 📋 Просмотр всех записей\n"
                 "• ⚙️ Управление консультациями\n"
-                "• 📊 Статистика по консультациям\n\n"
+                "• 📊 Статистика по консультациям\n"
+                "• 🆘 Обращения в поддержку\n\n"
                 "Выберите действие ниже 👇"
             ),
             reply_markup=get_admins_keyboard()
@@ -641,6 +644,84 @@ async def admin_stats(call: CallbackQuery):
         logger.error(f"Ошибка статистики: {e}")
         await bot.answer_callback_query(call.id, text="❌ Ошибка", show_alert=True)
 
+@bot.callback_query_handler(func=lambda call: call.data == "admin_view_support")
+async def admin_view_support(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    support_requests = await SupportRepository.get_all_with_users()
+
+    if not support_requests:
+        await bot.answer_callback_query(call.id, text="📭 Обращений в поддержку пока нет.", show_alert=True)
+        return
+
+    text = "🆘 Обращения в поддержку:\n\n"
+    for idx, req in enumerate(support_requests, 1):
+        viewed_emoji = "🆕" if not req.is_viewed else "✅"
+        text += (
+            f"{viewed_emoji} {idx}. {req.user.username} {req.user.id}\n"
+            f"   📝 {req.message[:50]}...\n"
+            f"   📅 {req.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+        )
+
+    kb = InlineKeyboardMarkup()
+    kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_support_viewed"))
+    kb.row(
+        InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
+    )
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=text,
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_mark_support_viewed")
+async def admin_mark_support_viewed(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    unviewed = await SupportRepository.get_unviewed()
+
+    if not unviewed:
+        await bot.answer_callback_query(call.id, "✅ Все обращения уже просмотрены!")
+        return
+
+    text = "🆕 Непросмотренные обращения:\n\n"
+    for idx, req in enumerate(unviewed, 1):
+        text += f"{idx}. {req.user.username} — {req.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+
+    text += "\nВыберите номер обращения, чтобы отметить его как просмотренное:"
+
+    kb = InlineKeyboardMarkup()
+    row = []
+    for idx, req in enumerate(unviewed, 1):
+        row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_support_{req.id}"))
+        if len(row) == 5:
+            kb.row(*row)
+            row = []
+    if row:
+        kb.row(*row)
+
+    kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_support"))
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text=text,
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_support_"))
+async def admin_mark_support(call: CallbackQuery):
+    support_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    await SupportRepository.mark_as_viewed(support_id)
+
+    await bot.answer_callback_query(call.id, text="✅ Обращение отмечено как просмотренное!")
+
+    await admin_view_support(call)
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
     user_id = call.from_user.id
@@ -655,7 +736,8 @@ async def admin_back(call: CallbackQuery):
             "📌 Доступные действия:\n"
             "• 📋 Просмотр всех записей\n"
             "• ⚙️ Управление консультациями\n"
-            "• 📊 Статистика по консультациям\n\n"
+            "• 📊 Статистика по консультациям\n"
+            "• 🆘 Обращения в поддержку\n\n"
             "Выберите действие ниже 👇"
         ),
         reply_markup=get_admins_keyboard()
@@ -987,6 +1069,67 @@ async def back_to_start(call: CallbackQuery):
 
     await show_start_menu(user, call.message.chat.id, call.message.message_id)
 
+# ---support logic
+@bot.callback_query_handler(func=lambda call: call.data == "support")
+async def support_start(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    if user_id not in registration_data:
+        registration_data[user_id] = {}
+    registration_data[user_id]["mode"] = "support"
+
+    kb = InlineKeyboardMarkup()
+    kb.row(InlineKeyboardButton("🔙 Назад", callback_data="back_to_start"))
+
+    await bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text="🆘 Поддержка\n\nРасскажите, что у вас случилось, решим вопрос как можно быстрее.\n\nПросто отправьте сообщение в чат.",
+        reply_markup=kb
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == "support_confirm")
+async def support_confirm(call: CallbackQuery):
+    user_id = call.from_user.id
+
+    try:
+        if user_id not in registration_data or "support_message" not in registration_data[user_id]:
+            await bot.answer_callback_query(call.id, text="❌ Сообщение не найдено", show_alert=True)
+            return
+
+        text = registration_data[user_id]["support_message"]
+        user = await TelegramBotRepository.get_user(user_id)
+
+        if not user:
+            await bot.send_message(user_id, "❌ Вы не зарегистрированы. Нажмите /start")
+            return
+
+        await SupportRepository.create_request(user_id=user.id, message=text)
+
+        registration_data[user_id]["mode"] = None
+        registration_data[user_id]["support_message"] = None
+
+        await bot.send_message(
+            chat_id=user_id,
+            text="✅ Ваше обращение отправлено! Мы свяжемся с вами в ближайшее время."
+        )
+
+        await notify_dev(
+            f"🆕 Новое обращение в поддержку\n\n"
+            f"👤 Пользователь: {user.username}, ID {user.id}\n"
+        )
+
+        await show_start_menu(user, call.message.chat.id, call.message.message_id)
+
+    except Exception as e:
+        logger.error(
+            f"Произошла неизвестная ошибка при отправке обращения от пользователя ID {user.id}, ошибка: {str(e)}")
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
+
 # logic text
 @bot.message_handler(func=lambda message: message.from_user.id in create_service_data)
 async def handle_create_service_text(message):
@@ -1058,6 +1201,9 @@ async def handle_edit_service_text(message):
 async def handle_text(message):
     user_id = message.from_user.id
 
+    if user_id in registration_data and registration_data[user_id].get("mode") == "support":
+        return
+
     if user_id not in registration_data:
         return
 
@@ -1125,6 +1271,28 @@ async def handle_text(message):
             text=text,
             reply_markup=kb
         )
+
+@bot.message_handler(func=lambda message: True)
+async def handle_support_message(message):
+    user_id = message.from_user.id
+    text = message.text
+
+    if user_id not in registration_data or registration_data[user_id].get("mode") != "support":
+        return
+
+    registration_data[user_id]["support_message"] = text
+
+    kb = InlineKeyboardMarkup()
+    kb.row(
+        InlineKeyboardButton("✅ Да, отправить", callback_data="support_confirm"),
+        InlineKeyboardButton("❌ Отменить", callback_data="back_to_start")
+    )
+
+    await bot.send_message(
+        chat_id=user_id,
+        text=f"📝 Ваше сообщение:\n\n{text}\n\nВсё верно?",
+        reply_markup=kb
+    )
 
 @bot.message_handler(content_types=['voice'])
 async def handle_admin_voice_send(message):

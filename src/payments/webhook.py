@@ -40,7 +40,7 @@ async def yookassa_webhook(request: Request):
 
         await PaymentRepository.update_status_by_yookassa_id(yookassa_payment_id, PaymentStatus.succeeded)
 
-        await send_notification_telegram(user_id, "✅ Платеж успешно прошел.")
+        await send_notification_telegram(user_id, "✅ Платеж успешно прошел. Скоро с вами свяжутся ожидайте...")
         await notify_admins(f"Новая запись на платную консультацию. Клиент {user.username}.\n\nПерейти к записям 👇")
 
         kb = InlineKeyboardMarkup()

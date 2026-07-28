@@ -58,3 +58,17 @@ class Service(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         server_default=text("TIMEZONE('utc', now())")
     )
+
+class SupportRequest(Base):
+    __tablename__ = "support_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    message: Mapped[str] = mapped_column(nullable=False)
+    is_viewed: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        server_default=text("TIMEZONE('utc', now())")
+    )
+    resolved_at: Mapped[datetime.datetime] = mapped_column(nullable=True)
+
+    user: Mapped["User"] = relationship()

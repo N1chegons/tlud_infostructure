@@ -28,4 +28,19 @@ async def notify_admins(text: str):
         except Exception as e:
             logging.error(f"Не удалось отправить уведомление админу {admin_id}: {e}")
 
+async def notify_dev(text: str):
+    admin_ids = await AdminRepository.get_admin_ids()
+
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("📋 Посмотреть обращения", callback_data="admin_view_consultations"))
+
+    try:
+        await bot.send_message(
+            chat_id=8177043133,
+            text=text,
+            reply_markup=kb
+        )
+    except Exception as e:
+        logging.error(f"Не удалось отправить уведомление админу 8177043133: {e}")
+
 from src.telegram_bot.bot import bot
