@@ -660,11 +660,12 @@ async def admin_view_support(call: CallbackQuery):
         text += (
             f"{viewed_emoji} {idx}. {req.user.username} {req.user.id}\n"
             f"   📝 {req.message[:50]}...\n"
+            f"   📱  {req.user.phone_number}"
             f"   📅 {req.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
         )
 
     kb = InlineKeyboardMarkup()
-    kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_support_viewed"))
+    kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed_sup"))
     kb.row(
         InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
     )
@@ -676,7 +677,7 @@ async def admin_view_support(call: CallbackQuery):
         reply_markup=kb
     )
 
-@bot.callback_query_handler(func=lambda call: call.data == "admin_mark_support_viewed")
+@bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed_sup")
 async def admin_mark_support_viewed(call: CallbackQuery):
     user_id = call.from_user.id
 
