@@ -647,81 +647,102 @@ async def admin_stats(call: CallbackQuery):
 @bot.callback_query_handler(func=lambda call: call.data == "admin_view_support")
 async def admin_view_support(call: CallbackQuery):
     user_id = call.from_user.id
+    try:
+        support_requests = await SupportRepository.get_all_with_users()
 
-    support_requests = await SupportRepository.get_all_with_users()
+        if not support_requests:
+            await bot.answer_callback_query(call.id, text="📭 Обращений в поддержку пока нет.", show_alert=True)
+            return
 
-    if not support_requests:
-        await bot.answer_callback_query(call.id, text="📭 Обращений в поддержку пока нет.", show_alert=True)
-        return
+        text = "🆘 Обращения в поддержку:\n\n"
+        for idx, req in enumerate(support_requests, 1):
+            viewed_emoji = "🆕" if not req.is_viewed else "✅"
+            text += (
+                f"{viewed_emoji} {idx}. {req.user.username} {req.user.id}\n"
+                f"   📝 {req.message[:50]}...\n"
+                f"   📱  {req.user.phone_number}\n"
+                f"   📅 {req.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+            )
 
-    text = "🆘 Обращения в поддержку:\n\n"
-    for idx, req in enumerate(support_requests, 1):
-        viewed_emoji = "🆕" if not req.is_viewed else "✅"
-        text += (
-            f"{viewed_emoji} {idx}. {req.user.username} {req.user.id}\n"
-            f"   📝 {req.message[:50]}...\n"
-            f"   📱  {req.user.phone_number}"
-            f"   📅 {req.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+        kb = InlineKeyboardMarkup()
+        kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed_sup"))
+        kb.row(
+            InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
         )
 
-    kb = InlineKeyboardMarkup()
-    kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed_sup"))
-    kb.row(
-        InlineKeyboardButton("🔙 Назад", callback_data="admin_back")
-    )
-
-    await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=call.message.message_id,
-        text=text,
-        reply_markup=kb
-    )
-
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при просмотре обращений: {e}")
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
 @bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed_sup")
 async def admin_mark_support_viewed(call: CallbackQuery):
     user_id = call.from_user.id
+    try:
+        unviewed = await SupportRepository.get_unviewed()
 
-    unviewed = await SupportRepository.get_unviewed()
+        if not unviewed:
+            await bot.answer_callback_query(call.id, "✅ Все обращения уже просмотрены!")
+            return
 
-    if not unviewed:
-        await bot.answer_callback_query(call.id, "✅ Все обращения уже просмотрены!")
-        return
+        text = "🆕 Непросмотренные обращения:\n\n"
+        for idx, req in enumerate(unviewed, 1):
+            text += f"{idx}. {req.user.username} — {req.created_at.strftime('%d.%m.%Y %H:%M')}\n"
 
-    text = "🆕 Непросмотренные обращения:\n\n"
-    for idx, req in enumerate(unviewed, 1):
-        text += f"{idx}. {req.user.username} — {req.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+        text += "\nВыберите номер обращения, чтобы отметить его как просмотренное:"
 
-    text += "\nВыберите номер обращения, чтобы отметить его как просмотренное:"
-
-    kb = InlineKeyboardMarkup()
-    row = []
-    for idx, req in enumerate(unviewed, 1):
-        row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_support_{req.id}"))
-        if len(row) == 5:
+        kb = InlineKeyboardMarkup()
+        row = []
+        for idx, req in enumerate(unviewed, 1):
+            row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_support_{req.id}"))
+            if len(row) == 5:
+                kb.row(*row)
+                row = []
+        if row:
             kb.row(*row)
-            row = []
-    if row:
-        kb.row(*row)
 
-    kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_support"))
+        kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_support"))
 
-    await bot.edit_message_text(
-        chat_id=user_id,
-        message_id=call.message.message_id,
-        text=text,
-        reply_markup=kb
-    )
+        await bot.edit_message_text(
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=kb
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отметки обращений: {e}")
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_support_"))
 async def admin_mark_support(call: CallbackQuery):
     support_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
+    try:
+        await SupportRepository.mark_as_viewed(support_id)
 
-    await SupportRepository.mark_as_viewed(support_id)
+        await bot.answer_callback_query(call.id, text="✅ Обращение отмечено как просмотренное!")
 
-    await bot.answer_callback_query(call.id, text="✅ Обращение отмечено как просмотренное!")
+        await admin_view_support(call)
 
-    await admin_view_support(call)
+    except Exception as e:
+        logger.error(f"Ошибка при отметке обращения: {e}")
+        await bot.answer_callback_query(
+            call.id,
+            text="❌ Произошла ошибка",
+            show_alert=True
+        )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_back")
 async def admin_back(call: CallbackQuery):
