@@ -683,9 +683,11 @@ async def admin_view_support(call: CallbackQuery):
             text="❌ Произошла ошибка",
             show_alert=True
         )
+
 @bot.callback_query_handler(func=lambda call: call.data == "admin_mark_viewed_sup")
 async def admin_mark_support_viewed(call: CallbackQuery):
     user_id = call.from_user.id
+
     try:
         unviewed = await SupportRepository.get_unviewed()
 
@@ -702,7 +704,7 @@ async def admin_mark_support_viewed(call: CallbackQuery):
         kb = InlineKeyboardMarkup()
         row = []
         for idx, req in enumerate(unviewed, 1):
-            row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_mark_support_{req.id}"))
+            row.append(InlineKeyboardButton(str(idx), callback_data=f"admin_support_mark_{req.id}"))
             if len(row) == 5:
                 kb.row(*row)
                 row = []
@@ -725,7 +727,7 @@ async def admin_mark_support_viewed(call: CallbackQuery):
             show_alert=True
         )
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_mark_support_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_support_mark_"))
 async def admin_mark_support(call: CallbackQuery):
     support_id = int(call.data.split("_")[-1])
     user_id = call.from_user.id
