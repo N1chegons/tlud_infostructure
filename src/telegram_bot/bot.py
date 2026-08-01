@@ -133,12 +133,16 @@ admin_voice_data = {}
 async def show_create_service_confirm(user_id: int):
     data = create_service_data[user_id]
 
+    type_label = "🎯 Донат" if data.get("is_donat") else "📌 Обычная"
+    price_label = "Сумма на ваш выбор" if data.get("is_donat") else f"{data['price']} ₽"
+
     text = f"""
 📋 Проверьте данные новой консультации:
 
+📌 Тип: {type_label}
 📌 Название: {data['name']}
 📝 Описание: {data.get('description', '—')}
-💰 Цена: {data['price']} ₽
+💰 Цена: {price_label}
 
 Всё верно?
     """
@@ -404,10 +408,17 @@ async def create_service(call: CallbackQuery):
     try:
         create_service_data[user_id] = {}
 
+        kb = InlineKeyboardMarkup()
+        kb.row(
+            InlineKeyboardButton("📌 Обычная", callback_data="service_type_normal"),
+            InlineKeyboardButton("🎯 Донат", callback_data="service_type_donat")
+        )
+
         await bot.edit_message_text(
             chat_id=user_id,
             message_id=call.message.message_id,
-            text="✏️ Введите название консультации:"
+            text="✏️ Выберите тип консультации:",
+            reply_markup=kb
         )
 
     except Exception as e:
@@ -418,6 +429,20 @@ async def create_service(call: CallbackQuery):
             text="❌ Произошла ошибка",
             show_alert=True
         )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("service_type_"))
+async def service_type_choice(call: CallbackQuery):
+    user_id = call.from_user.id
+    service_type = call.data.split("_")[-1]
+
+    create_service_data[user_id]["is_donat"] = (service_type == "donat")
+    create_service_data[user_id]["step"] = "name"
+
+    await bot.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text="✏️ Введите название консультации:"
+    )
 
 @bot.callback_query_handler(func=lambda call: call.data == "admin_send_voice")
 async def admin_send_voice_list(call: CallbackQuery):
@@ -949,9 +974,34 @@ async def service_card(call: CallbackQuery):
     user_id = call.from_user.id
 
     try:
-        logger.info(f"Пользовтель TG_ID {user_id} просматривает платную консультацию с ID {service_id}")
+        logger.info(f"Пользователь TG_ID {user_id} просматривает платную консультацию с ID {service_id}")
         service = await ServiceRepository.get_service_by_id(service_id)
 
+        # ===== ДОНАТ =====
+        if service.is_donat:
+            text = f"""
+🎯 {service.name}
+
+📝 {service.description or 'Описание отсутствует'}
+
+💰 Сумма на ваш выбор
+
+Нажмите «Оплатить», чтобы ввести сумму и перейти к оплате.
+            """
+
+            kb = InlineKeyboardMarkup()
+            kb.row(InlineKeyboardButton("💳 Оплатить", callback_data=f"donat_pay_{service_id}"))
+            kb.row(InlineKeyboardButton("🔙 Назад", callback_data="book"))
+
+            await bot.edit_message_text(
+                chat_id=user_id,
+                message_id=call.message.message_id,
+                text=text,
+                reply_markup=kb
+            )
+            return
+
+        # ===== ОБЫЧНАЯ УСЛУГА =====
         text = f"""
 📌 {service.name}
 
@@ -974,7 +1024,7 @@ async def service_card(call: CallbackQuery):
         )
 
     except Exception as e:
-        logger.error(f"Произошла неизвестная ошибка при просмотре консультации с SERV_ID {service_id}, TG_ID {user_id}, ошибка: {str(e)}")
+        logger.error(f"Ошибка при просмотре консультации: {e}")
         await bot.answer_callback_query(
             call.id,
             text="❌ Произошла ошибка",
@@ -1021,6 +1071,26 @@ async def process_payment(call: CallbackQuery):
             text="❌ Произошла ошибка",
             show_alert=True
         )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("donat_pay_"))
+async def donat_pay(call: CallbackQuery):
+    service_id = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+
+    registration_data[user_id] = {
+        "step": "donate_amount",
+        "service_id": service_id
+    }
+
+    kb = InlineKeyboardMarkup()
+    kb.row(InlineKeyboardButton("🔙 Назад", callback_data="book"))
+
+    await bot.send_message(
+        chat_id=user_id,
+        text="💰 Введите сумму:\n\nНапример: 1500",
+        reply_markup=kb
+    )
+
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_start")
 async def back_to_start(call: CallbackQuery):
@@ -1096,31 +1166,35 @@ async def handle_create_service_text(message):
     user_id = message.from_user.id
     data = create_service_data[user_id]
 
-    step = data.get("step", "name")
+    step = data.get("step", "type")
 
     if step == "name":
         data["name"] = message.text.strip()
         data["step"] = "desc"
         await bot.send_message(
             chat_id=user_id,
-            text="📝 Введите описание консультации (или отправьте «-», чтобы пропустить):"
+            text="📝 Введите описание (или отправьте «-», чтобы пропустить):"
         )
 
     elif step == "desc":
         desc = message.text.strip()
         data["description"] = None if desc == "-" else desc
         data["step"] = "price"
-        await bot.send_message(
-            chat_id=user_id,
-            text="💰 Введите цену услуги (в рублях. Пример: 3000):"
-        )
+
+        if data.get("is_donat"):
+            data["price"] = 0
+            await show_create_service_confirm(user_id)
+        else:
+            await bot.send_message(
+                chat_id=user_id,
+                text="💰 Введите цену консультации (Пример: 3000):"
+            )
 
     elif step == "price":
         try:
             price = float(message.text.strip())
             data["price"] = price
             await show_create_service_confirm(user_id)
-
         except ValueError:
             await bot.send_message(
                 chat_id=user_id,
@@ -1128,9 +1202,50 @@ async def handle_create_service_text(message):
             )
 
 @bot.message_handler(func=lambda message: True)
+async def handle_donate_amount(message):
+    user_id = message.from_user.id
+
+    if user_id not in registration_data or registration_data[user_id].get("step") != "donate_amount":
+        return
+
+    try:
+        amount = float(message.text.strip())
+        service_id = registration_data[user_id]["service_id"]
+        service = await ServiceRepository.get_service_by_id(service_id)
+        user = await TelegramBotRepository.get_user(user_id)
+
+        link = await PaymentRepository.create_payment_link(
+            amount=amount,
+            desc=f"Оплата консультации: {service.name}",
+            user_id=user_id,
+            service_id=service_id
+        )
+
+        await PaymentRepository.save_payment(
+            amount=amount,
+            user_id=user.id,
+            service_id=service_id,
+            payment_id=link['payment_id']
+        )
+
+        kb = InlineKeyboardMarkup()
+        kb.row(InlineKeyboardButton("💳 Перейти к оплате", url=link['payment_link']))
+        await bot.send_message(
+            user_id,
+            f"💳 Оплата консультации «{service.name}»\n\nСумма: {amount} ₽",
+            reply_markup=kb
+        )
+
+        registration_data[user_id]["step"] = None
+
+    except ValueError:
+        await bot.send_message(user_id, "❌ Неверный формат. Введите число, например: 1500")
+
+@bot.message_handler(func=lambda message: True)
 async def handle_text(message):
     user_id = message.from_user.id
 
+    # ====== ЕСЛИ ПОЛЬЗОВАТЕЛЬ В РЕЖИМЕ ПОДДЕРЖКИ ======
     if user_id in registration_data and registration_data[user_id].get("mode") == "support":
         text = message.text
         if not text:
@@ -1152,6 +1267,15 @@ async def handle_text(message):
         )
         return
 
+    # ====== ПРОПУСКАЕМ, ЕСЛИ ПОЛЬЗОВАТЕЛЬ В ПРОЦЕССЕ СОЗДАНИЯ УСЛУГИ ======
+    if user_id in create_service_data:
+        return
+
+    # ====== ПРОПУСКАЕМ, ЕСЛИ ПОЛЬЗОВАТЕЛЬ В ПРОЦЕССЕ ДОНАТА ======
+    if user_id in registration_data and registration_data[user_id].get("step") == "donate_amount":
+        return
+
+    # ====== РЕГИСТРАЦИЯ ======
     if user_id not in registration_data:
         return
 

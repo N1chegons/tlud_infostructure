@@ -52,8 +52,9 @@ class Service(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False)
     description: Mapped[str] = mapped_column(nullable=True)
-    price: Mapped[float] = mapped_column(nullable=False)
+    price: Mapped[float] = mapped_column(nullable=True, default=0.0)
     is_canceled: Mapped[bool] = mapped_column(default=False)
+    is_donat: Mapped[bool] = mapped_column(default=False)
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         server_default=text("TIMEZONE('utc', now())")
