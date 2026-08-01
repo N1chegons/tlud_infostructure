@@ -243,10 +243,10 @@ class ServiceRepository:
             return service
 
     @classmethod
-    async def create_service(cls, name: str,  price: int, description: str = None):
+    async def create_service(cls, name: str,  price: int, description: str = None, is_donat: bool = False):
         async with async_session() as session:
             logger.debug(f"Создание новой платной консультации")
-            stmt = insert(Service).values(name=name, price=price, description=description)
+            stmt = insert(Service).values(name=name, price=price, description=description, is_donat=is_donat)
 
             await session.execute(stmt)
             await session.commit()

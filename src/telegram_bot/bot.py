@@ -604,7 +604,8 @@ async def confirm_create_service(call: CallbackQuery):
         await ServiceRepository.create_service(
             name=data["name"],
             price=data["price"],
-            description=data["description"]
+            description=data["description"],
+            is_donat=data.get("is_donat", False)
         )
 
         del create_service_data[user_id]
