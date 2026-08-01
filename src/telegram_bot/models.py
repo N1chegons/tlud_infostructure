@@ -54,7 +54,7 @@ class Service(Base):
     description: Mapped[str] = mapped_column(nullable=True)
     price: Mapped[float] = mapped_column(nullable=True, default=0.0)
     is_canceled: Mapped[bool] = mapped_column(default=False)
-    is_donat: Mapped[bool] = mapped_column(default=False)
+    is_donat: Mapped[bool] = mapped_column(default=False, nullable=True)
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         server_default=text("TIMEZONE('utc', now())")
