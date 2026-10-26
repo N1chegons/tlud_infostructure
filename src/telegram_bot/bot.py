@@ -44,18 +44,9 @@ async def show_start_menu(user: User, chat_id: int, message_id: int = None):
     text = f"Привет, {user.username}!\nТы уже зарегистрирован, выбери действие ниже 👇"
 
     if message_id:
-        await bot.edit_message_text(
-            text=text,
-            chat_id=chat_id,
-            message_id=message_id,
-            reply_markup=keyboard
-        )
+        await bot.edit_message_text(text=text, chat_id=chat_id, message_id=message_id, reply_markup=keyboard)
     else:
-        await bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_markup=keyboard
-        )
+        await bot.send_message(chat_id=chat_id, text=text, reply_markup=keyboard)
 
 
 # start
@@ -69,12 +60,9 @@ async def start(message):
         logger.info(f"Пользователь не зарегистрирован. Начало регистрации")
         kb = InlineKeyboardMarkup()
         kb.add(InlineKeyboardButton(text="Пройти регистрацию", callback_data="register"))
-
         await bot.send_message(
             chat_id=message.chat.id,
-            text="Привет! 🙌\n"
-                 "Я цифровой психолог. Давай сначала познакомимся.\n\n"
-                 "Нажми кнопку ниже, чтобы начать регистрацию 👇",
+            text="Привет! 🙌\nЯ цифровой психолог. Давай сначала познакомимся.\n\nНажми кнопку ниже, чтобы начать регистрацию 👇",
             reply_markup=kb
         )
         return
@@ -93,40 +81,19 @@ async def show_create_service_confirm(user_id: int):
     data = create_service_data[user_id]
     type_label = "🎯 Донат" if data.get("is_donat") else "📌 Обычная"
     price_label = "Сумма на ваш выбор" if data.get("is_donat") else f"{data['price']} ₽"
-
-    text = f"""
-📋 Проверьте данные новой консультации:
-
-📌 Тип: {type_label}
-📌 Название: {data['name']}
-📝 Описание: {data.get('description', '—')}
-💰 Цена: {price_label}
-
-Всё верно?
-    """
+    text = f"📋 Проверьте данные:\n\n📌 Тип: {type_label}\n📌 Название: {data['name']}\n📝 Описание: {data.get('description', '—')}\n💰 Цена: {price_label}\n\nВсё верно?"
     kb = InlineKeyboardMarkup()
-    kb.row(
-        InlineKeyboardButton("✅ Да", callback_data="confirm_create_service"),
-        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
-    )
+    kb.row(InlineKeyboardButton("✅ Да", callback_data="confirm_create_service"),
+           InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings"))
     await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
 
 
 async def show_edit_service_confirm(user_id: int):
     data = edit_service_data[user_id]
-    text = f"""
-📋 Проверьте новые данные консультации:
-
-📌 Название: {data['name']}
-💰 Цена: {data['price']} ₽
-
-Всё верно?
-    """
+    text = f"📋 Проверьте данные:\n\n📌 Название: {data['name']}\n💰 Цена: {data['price']} ₽\n\nВсё верно?"
     kb = InlineKeyboardMarkup()
-    kb.row(
-        InlineKeyboardButton("✅ Да", callback_data="confirm_edit_service"),
-        InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings")
-    )
+    kb.row(InlineKeyboardButton("✅ Да", callback_data="confirm_edit_service"),
+           InlineKeyboardButton("❌ Нет", callback_data="admin_paid_consultations_settings"))
     await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
 
 
@@ -139,14 +106,7 @@ async def admin(message):
         await bot.send_message(
             chat_id=user_id,
             text=(
-                "🔐 Админ-панель\n\n"
-                "📌 Доступные действия:\n"
-                "• 📋 Просмотр всех записей\n"
-                "• ⚙️ Управление консультациями\n"
-                "• 📊 Статистика по консультациям\n"
-                "• 🆘 Обращения в поддержку\n\n"
-                "Выберите действие ниже 👇"
-            ),
+                "🔐 Админ-панель\n\n📌 Доступные действия:\n• 📋 Просмотр всех записей\n• ⚙️ Управление консультациями\n• 📊 Статистика\n• 🆘 Обращения в поддержку\n\nВыберите действие ниже 👇"),
             reply_markup=get_admins_keyboard()
         )
 
@@ -154,24 +114,19 @@ async def admin(message):
 @bot.callback_query_handler(func=lambda call: call.data == "admin_paid_consultations_settings")
 async def admin_paid_consultations_settings(call: CallbackQuery):
     user_id = call.from_user.id
-    if user_id in create_service_data:
-        del create_service_data[user_id]
+    if user_id in create_service_data: del create_service_data[user_id]
     try:
         kb = InlineKeyboardMarkup()
         paid_consultations = await ServiceRepository.get_services_list_by_admin()
-
         if not paid_consultations:
             text = "😕 Платных консультаций пока нет.\n\nВы можете ее добавить, нажмите на ➕ Добавить"
         else:
             text = "📋 Список консультаций:\n\n"
             for idx, con in enumerate(paid_consultations, 1):
                 text += (f"{idx}. {con.name} — {con.price} ₽\n{con.description}\n\n")
-
-        kb.add(
-            InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
-            InlineKeyboardButton("🔙 Назад", callback_data="admin_back"),
-            InlineKeyboardButton("🗑️ Удалить", callback_data="admin_delete_service")
-        )
+        kb.add(InlineKeyboardButton("➕ Добавить", callback_data="create_service"),
+               InlineKeyboardButton("🔙 Назад", callback_data="admin_back"),
+               InlineKeyboardButton("🗑️ Удалить", callback_data="admin_delete_service"))
         await bot.edit_message_text(chat_id=user_id, message_id=call.message.message_id, text=text, reply_markup=kb)
     except Exception as e:
         if "Error code: 400" in str(e): pass
@@ -200,13 +155,11 @@ async def admin_view_paid_consultations(call: CallbackQuery):
     if not consultations:
         await bot.answer_callback_query(call.id, text="📭 Платных записей пока нет.", show_alert=True)
         return
-
     text = "💳 Платные записи:\n\n"
     for idx, row in enumerate(consultations, 1):
         viewed_emoji = "🆕" if not row.is_viewed else "✅"
         text += (
             f"{viewed_emoji} {idx}. {row.username}\n📌 {row.service_name}\n📱 {row.phone_number}\n📅 {row.date_of_birth}\n")
-
     kb = InlineKeyboardMarkup()
     kb.row(InlineKeyboardButton("✅ Отметить просмотренные", callback_data="admin_mark_viewed_paid"))
     kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_view_consultations"))
@@ -222,12 +175,10 @@ async def admin_mark_viewed(call: CallbackQuery):
             await bot.answer_callback_query(call.id, "✅ Все записи уже просмотрены!")
             await admin_view_consultations(call)
             return
-
         text = "🆕 **Непросмотренные записи:**\n\n"
         for idx, row in enumerate(unviewed, 1):
             text += f"{idx}. {row.username}\n📱 {row.phone_number}\n📅 {row.date_of_birth}\n\n"
         text += "\nВыберите номер записи:"
-
         kb = InlineKeyboardMarkup()
         row = []
         for idx, row_data in enumerate(unviewed, 1):
@@ -292,7 +243,6 @@ async def admin_delete_service_list(call: CallbackQuery):
     for idx, service in enumerate(services, 1):
         text += f"{idx}. {service.name} — {service.price} ₽\n"
     text += "\nВыберите номер:"
-
     kb = InlineKeyboardMarkup()
     row = []
     for idx, service in enumerate(services, 1):
@@ -380,12 +330,10 @@ async def admin_view_support(call: CallbackQuery):
         if not support_requests:
             await bot.answer_callback_query(call.id, text="📭 Обращений нет.", show_alert=True)
             return
-
         text = "🆘 Обращения в поддержку:\n\n"
         for idx, req in enumerate(support_requests, 1):
             text += (
                 f"{idx}. {req.user.username} {req.user.id}\n📝 {req.message[:50]}...\n📱 {req.user.phone_number}\n📅 {req.created_at.strftime('%d.%m.%Y %H:%M')}\n\n")
-
         kb = InlineKeyboardMarkup()
         kb.row(InlineKeyboardButton("🔙 Назад", callback_data="admin_back"))
         await bot.edit_message_text(chat_id=user_id, message_id=call.message.message_id, text=text, reply_markup=kb)
@@ -431,8 +379,11 @@ async def confirm(call: CallbackQuery):
     try:
         logger.info(f"Регистрация для пользователя TG_ID {user_id}")
 
-        # Сохраняем в БД (теперь с телефоном)
-        user = await TelegramBotRepository.register_user(user_id, data["name"], data["birth"], data["phone"])
+        # ✅ 1. Создаем пользователя (метод возвращает ID)
+        await TelegramBotRepository.register_user(user_id, data["name"], data["birth"], data["phone"])
+
+        # ✅ 2. ЗАНОВО БЕРЕМ ОБЪЕКТ ПОЛЬЗОВАТЕЛЯ ИЗ БД
+        user = await TelegramBotRepository.get_user(user_id)
 
         # Удаляем Reply-клавиатуру с телефоном
         await bot.send_message(chat_id=user_id, text="✅ Регистрация успешно завершена!",
@@ -440,7 +391,7 @@ async def confirm(call: CallbackQuery):
 
         del registration_data[user_id]
 
-        # ✅ СРАЗУ ПЕРЕХОДИМ В МЕНЮ
+        # ✅ 3. ПЕРЕХОДИМ В МЕНЮ С ОБЪЕКТОМ USER
         await show_start_menu(user, call.message.chat.id)
 
     except Exception as e:
@@ -762,11 +713,7 @@ async def handle_contact(message):
         kb.add(InlineKeyboardButton("✅ Да", callback_data="confirm"),
                InlineKeyboardButton("❌ Нет", callback_data="cancel"))
 
-        # Удаляем reply-клавиатуру и показываем inline-подтверждение
         await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
-
-        # Опционально: можно отправить пустое сообщение с ReplyKeyboardRemove, чтобы убрать клавиатуру
-        # await bot.send_message(chat_id=user_id, text="...", reply_markup=ReplyKeyboardRemove())
 
     except Exception as e:
         logger.error(f"Ошибка при получении контакта {user_id}: {e}")
