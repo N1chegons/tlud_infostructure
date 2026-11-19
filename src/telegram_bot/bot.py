@@ -6,8 +6,7 @@ from aiohttp import web
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputFile, ReplyKeyboardMarkup, \
     KeyboardButton, ReplyKeyboardRemove
 from telebot.async_telebot import AsyncTeleBot
-from telegram.request import HTTPXRequest
-
+from telebot import apihelper
 from src.config import settings
 from src.logger_config import setup_logger
 from src.payments.repository import PaymentRepository
@@ -20,9 +19,9 @@ BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 WEBHOOK_PATH = settings.WEBHOOK_PATH
 WEBHOOK_URL = settings.WEBHOOK_URL_PATH
 
-
+apihelper.proxy = {'https': 'socks5://127.0.0.1:1080'}
 app = web.Application()
-bot = AsyncTeleBot(BOT_TOKEN, request=HTTPXRequest(proxy="http://127.0.0.1:8080"))
+bot = AsyncTeleBot(BOT_TOKEN)
 logger = setup_logger('telegram_bot', 'bot', 'bot.log')
 
 
@@ -780,7 +779,7 @@ async def main():
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, host='127.0.0.1', port=8080)
+    site = web.TCPSite(runner, host='127.0.0.1', port=8085)
     await site.start()
     print("!!! БОТ ЗАПУЩЕН !!!")
     logger.info("Бот запущен")
