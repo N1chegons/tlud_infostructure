@@ -783,6 +783,7 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, host='127.0.0.1', port=8080)
     await site.start()
+    print("!!! БОТ ЗАПУЩЕН !!!")
     logger.info("Бот запущен")
 
     await asyncio.Event().wait()
