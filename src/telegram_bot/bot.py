@@ -772,7 +772,7 @@ app.router.add_post(WEBHOOK_PATH, handle_webhook)
 
 
 async def main():
-    await bot.delete_webhook()
+    # await bot.delete_webhook()
     await bot.set_webhook(url=WEBHOOK_URL)
 
     runner = web.AppRunner(app)
