@@ -23,7 +23,7 @@ WEBHOOK_URL = settings.WEBHOOK_URL_PATH
 
 app = web.Application()
 bot = AsyncTeleBot(BOT_TOKEN)
-apihelper.proxy = {'https': 'socks5://147.45.79.130'}
+apihelper.proxy = {'https': 'socks5://79.76.59.115:1080'}
 logger = setup_logger('telegram_bot', 'bot', 'bot.log')
 
 
