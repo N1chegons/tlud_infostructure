@@ -6,7 +6,6 @@ from aiohttp import web
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputFile, ReplyKeyboardMarkup, \
     KeyboardButton, ReplyKeyboardRemove
 from telebot.async_telebot import AsyncTeleBot
-from telebot import apihelper
 from src.config import settings
 from src.logger_config import setup_logger
 from src.payments.repository import PaymentRepository
@@ -19,7 +18,6 @@ BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
 WEBHOOK_PATH = settings.WEBHOOK_PATH
 WEBHOOK_URL = settings.WEBHOOK_URL_PATH
 
-apihelper.proxy = {'https' : '45.77.146.92:8080'}
 app = web.Application()
 bot = AsyncTeleBot(BOT_TOKEN)
 logger = setup_logger('telegram_bot', 'bot', 'bot.log')
